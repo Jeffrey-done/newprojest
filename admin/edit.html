@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>编辑文章</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+  <script src="../assets/marked.min.js"></script>
+  <script src="../config.js"></script>
+  <style>
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    textarea { min-height: 460px; }
+    .preview { min-height: 460px; overflow: auto; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <section class="card">
+      <div class="space-between">
+        <h1 id="pageTitle">新增文章</h1>
+        <a class="btn ghost" href="./index.html">返回管理页</a>
+      </div>
+      <div class="row">
+        <input id="filename" placeholder="例如：my-first-post.md" maxlength="120" />
+        <button class="btn primary" id="saveBtn">保存</button>
+      </div>
+      <p class="muted">支持任意语言标题与内容；文件名建议使用英文/数字/短横线，避免平台差异。</p>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h2>Markdown 内容</h2>
+        <textarea id="content" placeholder="# 标题\n\n在这里写内容..."></textarea>
+      </article>
+      <article class="card preview">
+        <h2>实时预览</h2>
+        <div id="preview" class="markdown muted">开始输入后显示预览</div>
+      </article>
+    </section>
+  </main>
+
+  <script type="module">
+    import { getPostContent, upsertPost } from './utils.js';
+
+    const params = new URLSearchParams(location.search);
+    const filePath = params.get('file');
+
+    const filenameEl = document.getElementById('filename');
+    const contentEl = document.getElementById('content');
+    const previewEl = document.getElementById('preview');
+    const saveBtn = document.getElementById('saveBtn');
+
+    let currentSha = '';
+
+    const render = () => {
+      const val = contentEl.value.trim();
+      previewEl.innerHTML = val ? marked.parse(val) : '<span class="muted">开始输入后显示预览</span>';
+    };
+
+    contentEl.addEventListener('input', render);
+
+    async function init() {
+      if (!filePath) return;
+      document.getElementById('pageTitle').textContent = '编辑文章';
+      const { content, sha, name } = await getPostContent(filePath);
+      currentSha = sha;
+      filenameEl.value = name;
+      filenameEl.readOnly = true;
+      contentEl.value = content;
+      render();
+    }
+
+    saveBtn.addEventListener('click', async () => {
+      const filename = filenameEl.value.trim();
+      const content = contentEl.value;
+      if (!filename.endsWith('.md')) {
+        alert('文件名必须以 .md 结尾');
+        return;
+      }
+      if (!content.trim()) {
+        alert('内容不能为空');
+        return;
+      }
+
+      saveBtn.disabled = true;
+      try {
+        await upsertPost({ filename, content, sha: currentSha });
+        alert('保存成功');
+        location.href = './index.html';
+      } catch (e) {
+        alert(e.message);
+      } finally {
+        saveBtn.disabled = false;
+      }
+    });
+
+    init().catch((e) => {
+      alert(`初始化失败：${e.message}`);
+    });
+  </script>
+</body>
+</html>

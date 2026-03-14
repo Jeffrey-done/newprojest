@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>博客首页</title>
+  <link rel="stylesheet" href="assets/style.css" />
+  <script src="config.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="./index.html" id="siteTitle">博客</a>
+      <nav class="site-nav" aria-label="主导航">
+        <a href="./index.html">首页</a>
+        <a href="#archive">归档</a>
+        <a href="#about">关于</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container layout-two-column">
+    <section>
+      <article class="hero-card card">
+        <p class="hero-subtitle">WELCOME</p>
+        <h1 class="hero-title" id="heroTitle">记录、分享、沉淀</h1>
+        <p class="hero-desc muted" id="siteDesc"></p>
+      </article>
+
+      <section class="card" id="archive">
+        <div class="space-between section-title">
+          <h2>最新文章</h2>
+          <span id="status" class="muted">加载中...</span>
+        </div>
+        <div id="posts"></div>
+      </section>
+    </section>
+
+    <aside>
+      <section class="card profile-card" id="about">
+        <h3>站点信息</h3>
+        <p class="muted" id="sidebarDesc">一个简洁的静态博客。</p>
+      </section>
+      <section class="card">
+        <h3>公告</h3>
+        <ul class="clean-list muted">
+          <li>欢迎来到本站，内容会持续更新。</li>
+          <li>推荐按「归档」浏览历史文章。</li>
+          <li>支持手机与桌面端阅读。</li>
+        </ul>
+      </section>
+    </aside>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <span class="muted">© <span id="year"></span> <span id="footerTitle">博客</span></span>
+    </div>
+  </footer>
+
+  <script>
+    const cfg = window.BLOG_CONFIG;
+
+    function formatName(fileName) {
+      return fileName.replace(/\.md$/i, '').replace(/[-_]/g, ' ');
+    }
+
+    function extractDateLike(fileName) {
+      const m = fileName.match(/(\d{4})[-_](\d{2})[-_](\d{2})/);
+      return m ? `${m[1]}-${m[2]}-${m[3]}` : '未标注日期';
+    }
+
+    async function loadPosts() {
+      const statusEl = document.getElementById('status');
+      const postsEl = document.getElementById('posts');
+      const title = cfg?.site?.title || '博客';
+      const desc = cfg?.site?.description || '一个运行在 Cloudflare Pages 的静态博客';
+
+      document.title = `${title} - 首页`;
+      document.getElementById('siteTitle').textContent = title;
+      document.getElementById('heroTitle').textContent = title;
+      document.getElementById('footerTitle').textContent = title;
+      document.getElementById('siteDesc').textContent = desc;
+      document.getElementById('sidebarDesc').textContent = desc;
+      document.getElementById('year').textContent = new Date().getFullYear();
+
+      if (!cfg?.github?.owner || !cfg?.github?.repo) {
+        statusEl.textContent = '请先配置 config.js';
+        return;
+      }
+
+      try {
+        const url = `https://api.github.com/repos/${cfg.github.owner}/${cfg.github.repo}/contents/${cfg.github.postsDir}?ref=${cfg.github.branch}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`加载失败 (${res.status})`);
+        const files = await res.json();
+        const posts = files
+          .filter((f) => f.type === 'file' && f.name.toLowerCase().endsWith('.md'))
+          .sort((a, b) => b.name.localeCompare(a.name));
+
+        if (!posts.length) {
+          statusEl.textContent = '暂无文章';
+          postsEl.innerHTML = '<p class="muted">还没有内容，敬请期待。</p>';
+          return;
+        }
+
+        statusEl.textContent = `共 ${posts.length} 篇`;
+        postsEl.innerHTML = posts.map((post) => `
+          <article class="post-item">
+            <div>
+              <h3 class="post-title">
+                <a href="post.html?file=${encodeURIComponent(post.path)}">${formatName(post.name)}</a>
+              </h3>
+              <p class="post-meta muted">${extractDateLike(post.name)} · ${post.name}</p>
+            </div>
+            <a class="read-more" href="post.html?file=${encodeURIComponent(post.path)}">阅读全文 →</a>
+          </article>
+        `).join('');
+      } catch (e) {
+        statusEl.textContent = `加载失败：${e.message}`;
+      }
+    }
+
+    loadPosts();
+  </script>
+</body>
+</html>

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>文章详情</title>
+  <link rel="stylesheet" href="assets/style.css" />
+  <script src="assets/marked.min.js"></script>
+  <script src="config.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="./index.html" id="siteTitle">博客</a>
+      <nav class="site-nav" aria-label="主导航">
+        <a href="./index.html">首页</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container post-layout">
+    <article class="card post-card">
+      <a href="index.html" class="muted">← 返回首页</a>
+      <h1 id="title" class="post-page-title">加载中...</h1>
+      <p id="meta" class="muted post-meta"></p>
+      <article class="markdown" id="content"></article>
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <span class="muted">© <span id="year"></span> <span id="footerTitle">博客</span></span>
+    </div>
+  </footer>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const filePath = params.get('file');
+    const cfg = window.BLOG_CONFIG;
+
+    function formatName(fileName) {
+      return fileName.replace(/\.md$/i, '').replace(/[-_]/g, ' ');
+    }
+
+    async function loadPost() {
+      const siteTitle = cfg?.site?.title || '博客';
+      document.getElementById('siteTitle').textContent = siteTitle;
+      document.getElementById('footerTitle').textContent = siteTitle;
+      document.getElementById('year').textContent = new Date().getFullYear();
+
+      if (!filePath) {
+        document.getElementById('title').textContent = '缺少 file 参数';
+        return;
+      }
+      try {
+        const res = await fetch(`https://api.github.com/repos/${cfg.github.owner}/${cfg.github.repo}/contents/${filePath}?ref=${cfg.github.branch}`);
+        if (!res.ok) throw new Error(`加载失败 (${res.status})`);
+        const data = await res.json();
+        const decoded = decodeURIComponent(escape(atob((data.content || '').replace(/\n/g, ''))));
+        const prettyTitle = formatName(data.name);
+
+        document.title = `${prettyTitle} - ${siteTitle}`;
+        document.getElementById('title').textContent = prettyTitle;
+        document.getElementById('meta').textContent = `文件：${data.path}`;
+        document.getElementById('content').innerHTML = marked.parse(decoded);
+      } catch (e) {
+        document.getElementById('title').textContent = `加载失败：${e.message}`;
+      }
+    }
+
+    loadPost();
+  </script>
+</body>
+</html>
