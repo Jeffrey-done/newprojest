@@ -1,7 +1,7 @@
 // 本地演示配置：请替换 owner/repo/token
 window.BLOG_CONFIG = {
   site: {
-    title: 'SubScript Lite',
+    title: 'Gblog',
     description: 'Cloudflare + GitHub 的轻量可视化博客方案',
     language: 'zh-CN'
   },
