@@ -1,0 +1,4 @@
+# Cloudflare Pages repo config (BETA auto-detected by Pages build logs)
+name = "newprojest"
+compatibility_date = "2026-03-14"
+pages_build_output_dir = "."
