@@ -43,6 +43,38 @@
     const listEl = document.getElementById('postList');
     const statusEl = document.getElementById('status');
 
+    function renderEmptyState() {
+      statusEl.textContent = '';
+      listEl.innerHTML = `
+        <article class="admin-state-card admin-state-empty">
+          <div class="admin-state-icon">📝</div>
+          <h3>还没有文章</h3>
+          <p class="muted">现在就创建第一篇内容吧，写好后前台会自动展示。</p>
+          <div class="row">
+            <a class="btn primary" href="./edit.html">去写第一篇</a>
+            <button class="btn ghost" id="tryRefreshEmpty">重新检查</button>
+          </div>
+        </article>
+      `;
+      document.getElementById('tryRefreshEmpty')?.addEventListener('click', load);
+    }
+
+    function renderErrorState(message) {
+      statusEl.textContent = '';
+      listEl.innerHTML = `
+        <article class="admin-state-card admin-state-error">
+          <div class="admin-state-icon">⚠️</div>
+          <h3>文章列表暂时加载失败</h3>
+          <p class="muted">${message}</p>
+          <div class="row">
+            <button class="btn" id="tryRefreshError">重试</button>
+            <a class="btn ghost" href="./edit.html">直接新建文章</a>
+          </div>
+        </article>
+      `;
+      document.getElementById('tryRefreshError')?.addEventListener('click', load);
+    }
+
     async function load() {
       statusEl.textContent = '加载中...';
       listEl.innerHTML = '';
@@ -50,7 +82,7 @@
       try {
         const posts = await getPosts();
         if (!posts.length) {
-          statusEl.textContent = '暂无文章，点击“新增文章”创建第一篇。';
+          renderEmptyState();
           return;
         }
 
@@ -69,7 +101,12 @@
           </article>
         `).join('');
       } catch (e) {
-        statusEl.textContent = `加载失败：${e.message}`;
+        const msg = e?.message || '未知错误';
+        if (msg.includes('HTTP 404') || msg.includes('Not Found')) {
+          renderEmptyState();
+          return;
+        }
+        renderErrorState(msg.replace(/\n/g, '<br>'));
       }
     }
 
