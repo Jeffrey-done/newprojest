@@ -8,11 +8,39 @@
   <title>编辑文章</title>
   <link rel="stylesheet" href="../assets/style.css" />
   <script src="../config.js"></script>
+
+  <!-- Word-like rich editor (Quill) -->
+  <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
+
   <style>
     .hint { margin-top: 8px; }
-    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
-    .editor {
-      min-height: 460px;
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .preview-box {
+      min-height: 470px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fff;
+      overflow: auto;
+    }
+    #editorWrap {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    #editorToolbar {
+      border-bottom: 1px solid var(--border);
+      background: #fafafa;
+    }
+    #editor {
+      min-height: 420px;
+      font-size: 16px;
+      line-height: 1.7;
+    }
+    .fallback-editor {
+      min-height: 420px;
       border: 1px solid var(--border);
       border-radius: 8px;
       background: #fff;
@@ -20,10 +48,14 @@
       outline: none;
       overflow: auto;
     }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .preview { min-height: 460px; }
-    .preview-box { min-height: 420px; border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: #fff; }
-    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+    .editor-tip {
+      margin: 6px 0 0;
+      color: #7b8190;
+      font-size: 13px;
+    }
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
@@ -46,28 +78,64 @@
         <input id="filename" placeholder="文章名（可不写后缀，会自动补 .html）" maxlength="120" />
         <button class="btn primary" id="saveBtn">保存</button>
       </div>
-      <p class="muted">现在默认使用可视化编辑（非 Markdown）。支持插入图片（图片链接 / 本地图片）。</p>
+      <p class="muted">已升级为接近 Word 的可视化编辑：可直接输入、改字体样式、对齐、插图，不需要 Markdown。</p>
     </section>
 
     <section class="grid">
       <article class="card">
         <h2>正文编辑</h2>
-        <div class="toolbar">
-          <button class="btn ghost" type="button" data-cmd="bold">加粗</button>
-          <button class="btn ghost" type="button" data-cmd="italic">斜体</button>
-          <button class="btn ghost" type="button" data-cmd="formatBlock" data-value="h2">小标题</button>
-          <button class="btn ghost" type="button" data-cmd="insertUnorderedList">无序列表</button>
-          <button class="btn ghost" type="button" data-cmd="insertOrderedList">有序列表</button>
-          <button class="btn ghost" type="button" id="insertLinkBtn">插入链接</button>
-          <button class="btn ghost" type="button" id="insertImageUrlBtn">插入图片链接</button>
-          <button class="btn ghost" type="button" id="insertImageLocalBtn">插入本地图片</button>
-          <input id="imageLocalInput" type="file" accept="image/*" style="display:none" />
-          <button class="btn ghost" type="button" data-cmd="removeFormat">清除格式</button>
+
+        <div id="editorWrap">
+          <div id="editorToolbar">
+            <span class="ql-formats">
+              <select class="ql-header">
+                <option selected></option>
+                <option value="1"></option>
+                <option value="2"></option>
+                <option value="3"></option>
+              </select>
+              <select class="ql-font"></select>
+            </span>
+            <span class="ql-formats">
+              <button class="ql-bold"></button>
+              <button class="ql-italic"></button>
+              <button class="ql-underline"></button>
+              <button class="ql-strike"></button>
+            </span>
+            <span class="ql-formats">
+              <select class="ql-color"></select>
+              <select class="ql-background"></select>
+            </span>
+            <span class="ql-formats">
+              <button class="ql-list" value="ordered"></button>
+              <button class="ql-list" value="bullet"></button>
+              <button class="ql-indent" value="-1"></button>
+              <button class="ql-indent" value="+1"></button>
+            </span>
+            <span class="ql-formats">
+              <button class="ql-align" value=""></button>
+              <button class="ql-align" value="center"></button>
+              <button class="ql-align" value="right"></button>
+              <button class="ql-align" value="justify"></button>
+            </span>
+            <span class="ql-formats">
+              <button class="ql-link"></button>
+              <button class="ql-image"></button>
+            </span>
+            <span class="ql-formats">
+              <button class="ql-clean"></button>
+            </span>
+          </div>
+          <div id="editor"></div>
         </div>
-        <div id="editor" class="editor" contenteditable="true" aria-label="文章内容编辑器"></div>
+
+        <div id="fallbackEditor" class="fallback-editor" contenteditable="true" style="display:none;"></div>
+        <p class="editor-tip" id="editorTip"></p>
+
+        <input id="imageLocalInput" type="file" accept="image/*" style="display:none" />
       </article>
 
-      <article class="card preview">
+      <article class="card">
         <h2>实时预览</h2>
         <div id="preview" class="preview-box"></div>
       </article>
@@ -81,11 +149,15 @@
     const filePath = params.get('file');
 
     const filenameEl = document.getElementById('filename');
-    const editorEl = document.getElementById('editor');
     const previewEl = document.getElementById('preview');
     const saveBtn = document.getElementById('saveBtn');
+    const editorTipEl = document.getElementById('editorTip');
+    const fallbackEditorEl = document.getElementById('fallbackEditor');
+
+    const imageInput = document.getElementById('imageLocalInput');
 
     let currentSha = '';
+    let quill = null;
 
     const target = getRuntimeTarget();
     document.getElementById('targetHint').textContent = `当前写入目标：${target.owner}/${target.repo} · branch=${target.branch} · dir=${target.postsDir}`;
@@ -102,54 +174,72 @@
       alert('Token 已清除。');
     });
 
-    function renderPreview() {
-      previewEl.innerHTML = editorEl.innerHTML || '<span class="muted">开始编辑后显示预览</span>';
+    function getEditorHtml() {
+      if (quill) return quill.root.innerHTML;
+      return fallbackEditorEl.innerHTML;
     }
 
-    editorEl.addEventListener('input', renderPreview);
+    function setEditorHtml(html) {
+      if (quill) {
+        quill.root.innerHTML = html;
+      } else {
+        fallbackEditorEl.innerHTML = html;
+      }
+      renderPreview();
+    }
 
-    document.querySelectorAll('[data-cmd]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const cmd = btn.dataset.cmd;
-        const value = btn.dataset.value || null;
-        document.execCommand(cmd, false, value);
-        editorEl.focus();
-        renderPreview();
+    function renderPreview() {
+      const html = getEditorHtml();
+      previewEl.innerHTML = (html && html.trim()) ? html : '<span class="muted">开始编辑后显示预览</span>';
+    }
+
+    function bindImageHandler() {
+      imageInput.addEventListener('change', () => {
+        const file = imageInput.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = reader.result;
+          if (quill) {
+            const range = quill.getSelection(true);
+            const index = range ? range.index : quill.getLength();
+            quill.insertEmbed(index, 'image', dataUrl, 'user');
+            quill.setSelection(index + 1, 0);
+          } else {
+            document.execCommand('insertImage', false, dataUrl);
+          }
+          renderPreview();
+        };
+        reader.readAsDataURL(file);
+        imageInput.value = '';
       });
-    });
+    }
 
-    document.getElementById('insertLinkBtn').addEventListener('click', () => {
-      const url = prompt('请输入链接地址（https://...）');
-      if (!url) return;
-      document.execCommand('createLink', false, url);
-      editorEl.focus();
-      renderPreview();
-    });
+    function initWordLikeEditor() {
+      if (!window.Quill) {
+        document.getElementById('editorWrap').style.display = 'none';
+        fallbackEditorEl.style.display = 'block';
+        fallbackEditorEl.addEventListener('input', renderPreview);
+        editorTipEl.textContent = '当前环境未加载富文本引擎，已自动切换到基础编辑模式。';
+        return;
+      }
 
-    document.getElementById('insertImageUrlBtn').addEventListener('click', () => {
-      const url = prompt('请输入图片地址（https://...）');
-      if (!url) return;
-      document.execCommand('insertImage', false, url);
-      editorEl.focus();
-      renderPreview();
-    });
+      quill = new Quill('#editor', {
+        theme: 'snow',
+        placeholder: '像写 Word 一样直接输入内容…',
+        modules: {
+          toolbar: {
+            container: '#editorToolbar',
+            handlers: {
+              image: () => imageInput.click()
+            }
+          }
+        }
+      });
 
-    const imageInput = document.getElementById('imageLocalInput');
-    document.getElementById('insertImageLocalBtn').addEventListener('click', () => imageInput.click());
-
-    imageInput.addEventListener('change', async () => {
-      const file = imageInput.files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result;
-        document.execCommand('insertImage', false, dataUrl);
-        editorEl.focus();
-        renderPreview();
-      };
-      reader.readAsDataURL(file);
-      imageInput.value = '';
-    });
+      quill.on('text-change', renderPreview);
+      editorTipEl.textContent = '支持粘贴 Word 内容（会尽量保留格式），也支持插入本地图片。';
+    }
 
     function ensureFilename(raw) {
       const name = raw.trim();
@@ -159,9 +249,11 @@
     }
 
     async function init() {
+      initWordLikeEditor();
+      bindImageHandler();
+
       if (!filePath) {
-        editorEl.innerHTML = '<h2>请输入标题</h2><p>在这里开始写内容...</p>';
-        renderPreview();
+        setEditorHtml('<h2>请输入标题</h2><p>在这里开始写内容…</p>');
         return;
       }
 
@@ -172,22 +264,22 @@
       filenameEl.readOnly = true;
 
       if (/\.md$/i.test(name)) {
-        editorEl.innerHTML = `<p>${content.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</p>`;
+        const escaped = content.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+        setEditorHtml(`<p>${escaped}</p>`);
       } else {
-        editorEl.innerHTML = content;
+        setEditorHtml(content);
       }
-      renderPreview();
     }
 
     saveBtn.addEventListener('click', async () => {
       const filename = ensureFilename(filenameEl.value);
-      const contentHtml = editorEl.innerHTML.trim();
+      const contentHtml = getEditorHtml().trim();
 
       if (!filename) {
         alert('请输入文章名');
         return;
       }
-      if (!contentHtml || contentHtml === '<br>') {
+      if (!contentHtml || contentHtml === '<p><br></p>' || contentHtml === '<br>') {
         alert('内容不能为空');
         return;
       }
