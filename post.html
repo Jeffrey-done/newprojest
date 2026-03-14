@@ -10,29 +10,22 @@
   <script src="assets/marked.min.js"></script>
   <script src="config.js"></script>
 </head>
-<body>
-  <header class="site-header">
-    <div class="container header-inner">
-      <a class="brand" href="./index.html" id="siteTitle">博客</a>
-      <nav class="site-nav" aria-label="主导航">
-        <a href="./index.html">首页</a>
-      </nav>
-    </div>
-  </header>
+<body class="theme-leedom">
+  <main class="leed-container leed-article-wrap">
+    <header class="leed-header">
+      <a class="leed-brand" href="./index.html" id="siteTitle">GBLOG</a>
+      <div class="leed-icons" aria-label="quick links">
+        <a href="./index.html" title="Home">⌂</a>
+      </div>
+    </header>
 
-  <main class="container post-layout">
-    <article class="card post-card">
-      <a href="index.html" class="muted">← 返回首页</a>
-      <h1 id="title" class="post-page-title">加载中...</h1>
-      <article class="markdown" id="content"></article>
+    <article class="leed-article">
+      <a href="index.html" class="leed-back">← 返回首页</a>
+      <p class="leed-article-date" id="articleDate"></p>
+      <h1 id="title" class="leed-article-title">加载中...</h1>
+      <article class="leed-content markdown" id="content"></article>
     </article>
   </main>
-
-  <footer class="site-footer">
-    <div class="container">
-      <span class="muted">© <span id="year"></span> <span id="footerTitle">博客</span></span>
-    </div>
-  </footer>
 
   <script>
     const params = new URLSearchParams(location.search);
@@ -43,31 +36,38 @@
       return fileName.replace(/\.(md|html?)$/i, '').replace(/[-_]/g, ' ');
     }
 
+    function dateFromPath(path) {
+      const m = (path || '').match(/(\d{4})[-_](\d{2})[-_](\d{2})/);
+      if (!m) return '';
+      const dt = new Date(`${m[1]}-${m[2]}-${m[3]}`);
+      return dt.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+    }
+
     async function loadPost() {
-      const siteTitle = cfg?.site?.title || '博客';
+      const siteTitle = (cfg?.site?.title || 'Gblog').toUpperCase();
       document.getElementById('siteTitle').textContent = siteTitle;
-      document.getElementById('footerTitle').textContent = siteTitle;
-      document.getElementById('year').textContent = new Date().getFullYear();
 
       if (!filePath) {
         document.getElementById('title').textContent = '缺少 file 参数';
         return;
       }
+
       try {
         const res = await fetch(`https://api.github.com/repos/${cfg.github.owner}/${cfg.github.repo}/contents/${filePath}?ref=${cfg.github.branch}`);
         if (!res.ok) throw new Error(`加载失败 (${res.status})`);
+
         const data = await res.json();
         const decoded = decodeURIComponent(escape(atob((data.content || '').replace(/\n/g, ''))));
         const prettyTitle = formatName(data.name);
         const isHtml = /\.html?$/i.test(data.name || '');
 
         document.title = `${prettyTitle} - ${siteTitle}`;
+        document.getElementById('articleDate').textContent = dateFromPath(data.path);
         document.getElementById('title').textContent = prettyTitle;
 
         const contentEl = document.getElementById('content');
         contentEl.innerHTML = isHtml ? decoded : marked.parse(decoded);
 
-        // 避免正文里首个标题（h1~h6）与页面标题重复显示
         const normalizeTitle = (text) => (text || '')
           .replace(/\s+/g, '')
           .replace(/[【】\[\]()（）:：·•\-—_]/g, '')
