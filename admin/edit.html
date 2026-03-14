@@ -7,13 +7,22 @@
   <link rel="apple-touch-icon" href="/assets/icons/favicon.svg" />
   <title>编辑文章</title>
   <link rel="stylesheet" href="../assets/style.css" />
-  <script src="../assets/marked.min.js"></script>
   <script src="../config.js"></script>
   <style>
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    textarea { min-height: 460px; }
-    .preview { min-height: 460px; overflow: auto; }
     .hint { margin-top: 8px; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+    .editor {
+      min-height: 460px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+      padding: 12px;
+      outline: none;
+      overflow: auto;
+    }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .preview { min-height: 460px; }
+    .preview-box { min-height: 420px; border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: #fff; }
     @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -21,30 +30,46 @@
   <main class="container">
     <section class="card">
       <div class="space-between">
-        <h1 id="pageTitle">新增文章</h1>
+        <h1 id="pageTitle">写文章</h1>
         <a class="btn ghost" href="./index.html">返回管理页</a>
       </div>
+
       <div class="row" style="margin-bottom: 10px;">
         <input id="token" type="password" placeholder="粘贴 GitHub Token（当前会话）" aria-label="GitHub Token" />
         <button class="btn" id="saveTokenBtn">保存 Token</button>
         <button class="btn ghost" id="clearTokenBtn">清除 Token</button>
       </div>
+
       <p class="muted hint" id="targetHint"></p>
+
       <div class="row">
-        <input id="filename" placeholder="例如：my-first-post.md" maxlength="120" />
+        <input id="filename" placeholder="文章名（可不写后缀，会自动补 .html）" maxlength="120" />
         <button class="btn primary" id="saveBtn">保存</button>
       </div>
-      <p class="muted">支持任意语言标题与内容；文件名建议使用英文/数字/短横线，避免平台差异。</p>
+      <p class="muted">现在默认使用可视化编辑（非 Markdown）。支持插入图片（图片链接 / 本地图片）。</p>
     </section>
 
     <section class="grid">
       <article class="card">
-        <h2>Markdown 内容</h2>
-        <textarea id="content" placeholder="# 标题\n\n在这里写内容..."></textarea>
+        <h2>正文编辑</h2>
+        <div class="toolbar">
+          <button class="btn ghost" type="button" data-cmd="bold">加粗</button>
+          <button class="btn ghost" type="button" data-cmd="italic">斜体</button>
+          <button class="btn ghost" type="button" data-cmd="formatBlock" data-value="h2">小标题</button>
+          <button class="btn ghost" type="button" data-cmd="insertUnorderedList">无序列表</button>
+          <button class="btn ghost" type="button" data-cmd="insertOrderedList">有序列表</button>
+          <button class="btn ghost" type="button" id="insertLinkBtn">插入链接</button>
+          <button class="btn ghost" type="button" id="insertImageUrlBtn">插入图片链接</button>
+          <button class="btn ghost" type="button" id="insertImageLocalBtn">插入本地图片</button>
+          <input id="imageLocalInput" type="file" accept="image/*" style="display:none" />
+          <button class="btn ghost" type="button" data-cmd="removeFormat">清除格式</button>
+        </div>
+        <div id="editor" class="editor" contenteditable="true" aria-label="文章内容编辑器"></div>
       </article>
+
       <article class="card preview">
         <h2>实时预览</h2>
-        <div id="preview" class="markdown muted">开始输入后显示预览</div>
+        <div id="preview" class="preview-box"></div>
       </article>
     </section>
   </main>
@@ -56,7 +81,7 @@
     const filePath = params.get('file');
 
     const filenameEl = document.getElementById('filename');
-    const contentEl = document.getElementById('content');
+    const editorEl = document.getElementById('editor');
     const previewEl = document.getElementById('preview');
     const saveBtn = document.getElementById('saveBtn');
 
@@ -77,39 +102,99 @@
       alert('Token 已清除。');
     });
 
-    const render = () => {
-      const val = contentEl.value.trim();
-      previewEl.innerHTML = val ? marked.parse(val) : '<span class="muted">开始输入后显示预览</span>';
-    };
+    function renderPreview() {
+      previewEl.innerHTML = editorEl.innerHTML || '<span class="muted">开始编辑后显示预览</span>';
+    }
 
-    contentEl.addEventListener('input', render);
+    editorEl.addEventListener('input', renderPreview);
+
+    document.querySelectorAll('[data-cmd]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const cmd = btn.dataset.cmd;
+        const value = btn.dataset.value || null;
+        document.execCommand(cmd, false, value);
+        editorEl.focus();
+        renderPreview();
+      });
+    });
+
+    document.getElementById('insertLinkBtn').addEventListener('click', () => {
+      const url = prompt('请输入链接地址（https://...）');
+      if (!url) return;
+      document.execCommand('createLink', false, url);
+      editorEl.focus();
+      renderPreview();
+    });
+
+    document.getElementById('insertImageUrlBtn').addEventListener('click', () => {
+      const url = prompt('请输入图片地址（https://...）');
+      if (!url) return;
+      document.execCommand('insertImage', false, url);
+      editorEl.focus();
+      renderPreview();
+    });
+
+    const imageInput = document.getElementById('imageLocalInput');
+    document.getElementById('insertImageLocalBtn').addEventListener('click', () => imageInput.click());
+
+    imageInput.addEventListener('change', async () => {
+      const file = imageInput.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result;
+        document.execCommand('insertImage', false, dataUrl);
+        editorEl.focus();
+        renderPreview();
+      };
+      reader.readAsDataURL(file);
+      imageInput.value = '';
+    });
+
+    function ensureFilename(raw) {
+      const name = raw.trim();
+      if (!name) return '';
+      if (/\.(html?|md)$/i.test(name)) return name;
+      return `${name}.html`;
+    }
 
     async function init() {
-      if (!filePath) return;
+      if (!filePath) {
+        editorEl.innerHTML = '<h2>请输入标题</h2><p>在这里开始写内容...</p>';
+        renderPreview();
+        return;
+      }
+
       document.getElementById('pageTitle').textContent = '编辑文章';
       const { content, sha, name } = await getPostContent(filePath);
       currentSha = sha;
       filenameEl.value = name;
       filenameEl.readOnly = true;
-      contentEl.value = content;
-      render();
+
+      if (/\.md$/i.test(name)) {
+        editorEl.innerHTML = `<p>${content.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</p>`;
+      } else {
+        editorEl.innerHTML = content;
+      }
+      renderPreview();
     }
 
     saveBtn.addEventListener('click', async () => {
-      const filename = filenameEl.value.trim();
-      const content = contentEl.value;
-      if (!filename.endsWith('.md')) {
-        alert('文件名必须以 .md 结尾');
+      const filename = ensureFilename(filenameEl.value);
+      const contentHtml = editorEl.innerHTML.trim();
+
+      if (!filename) {
+        alert('请输入文章名');
         return;
       }
-      if (!content.trim()) {
+      if (!contentHtml || contentHtml === '<br>') {
         alert('内容不能为空');
         return;
       }
 
       saveBtn.disabled = true;
       try {
-        await upsertPost({ filename, content, sha: currentSha });
+        await upsertPost({ filename, content: contentHtml, sha: currentSha });
         alert('保存成功');
         location.href = './index.html';
       } catch (e) {

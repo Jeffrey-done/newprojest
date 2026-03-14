@@ -184,3 +184,11 @@ input, textarea {
     font-size: 0.92rem;
   }
 }
+
+.markdown img,
+.preview-box img,
+.editor img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+}

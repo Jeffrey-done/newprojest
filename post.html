@@ -40,7 +40,7 @@
     const cfg = window.BLOG_CONFIG;
 
     function formatName(fileName) {
-      return fileName.replace(/\.md$/i, '').replace(/[-_]/g, ' ');
+      return fileName.replace(/\.(md|html?)$/i, '').replace(/[-_]/g, ' ');
     }
 
     async function loadPost() {
@@ -59,10 +59,11 @@
         const data = await res.json();
         const decoded = decodeURIComponent(escape(atob((data.content || '').replace(/\n/g, ''))));
         const prettyTitle = formatName(data.name);
+        const isHtml = /\.html?$/i.test(data.name || '');
 
         document.title = `${prettyTitle} - ${siteTitle}`;
         document.getElementById('title').textContent = prettyTitle;
-        document.getElementById('content').innerHTML = marked.parse(decoded);
+        document.getElementById('content').innerHTML = isHtml ? decoded : marked.parse(decoded);
       } catch (e) {
         document.getElementById('title').textContent = `加载失败：${e.message}`;
       }

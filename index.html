@@ -64,7 +64,7 @@
     const cfg = window.BLOG_CONFIG;
 
     function formatName(fileName) {
-      return fileName.replace(/\.md$/i, '').replace(/[-_]/g, ' ');
+      return fileName.replace(/\.(md|html?)$/i, '').replace(/[-_]/g, ' ');
     }
 
     function extractDateLike(fileName) {
@@ -97,7 +97,7 @@
         if (!res.ok) throw new Error(`加载失败 (${res.status})`);
         const files = await res.json();
         const posts = files
-          .filter((f) => f.type === 'file' && f.name.toLowerCase().endsWith('.md'))
+          .filter((f) => f.type === 'file' && /\.(md|html?)$/i.test(f.name))
           .sort((a, b) => b.name.localeCompare(a.name));
 
         if (!posts.length) {

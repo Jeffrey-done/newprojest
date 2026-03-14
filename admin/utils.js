@@ -12,7 +12,6 @@ function getConfig() {
 
 function getAuthHeaderValue(token) {
   if (!token) return '';
-  // classic tokens (ghp_/gho_/ghu_/ghs_) use `token xxx`; fine-grained `github_pat_` uses Bearer as well.
   if (/^(gh[pous]_)/.test(token)) return `token ${token}`;
   return `Bearer ${token}`;
 }
@@ -80,6 +79,11 @@ export function getRuntimeTarget() {
   };
 }
 
+function isPostFile(name) {
+  const lower = name.toLowerCase();
+  return lower.endsWith('.md') || lower.endsWith('.html') || lower.endsWith('.htm');
+}
+
 export async function getPosts() {
   const cfg = getConfig();
   const res = await fetch(
@@ -90,7 +94,7 @@ export async function getPosts() {
   const files = await res.json();
 
   return files
-    .filter((f) => f.type === 'file' && f.name.toLowerCase().endsWith('.md'))
+    .filter((f) => f.type === 'file' && isPostFile(f.name))
     .sort((a, b) => a.name.localeCompare(b.name, cfg.site?.language || 'zh-CN'))
     .map((f) => ({ name: f.name, path: f.path, sha: f.sha, size: f.size, htmlUrl: f.html_url }));
 }
@@ -109,8 +113,9 @@ export async function getPostContent(filePath) {
 export async function upsertPost({ filename, content, sha }) {
   const cfg = getConfig();
   const safeName = filename.trim();
-  if (!safeName || !safeName.endsWith('.md')) {
-    throw new Error('文件名必须以 .md 结尾');
+  const lower = safeName.toLowerCase();
+  if (!safeName || !(lower.endsWith('.md') || lower.endsWith('.html') || lower.endsWith('.htm'))) {
+    throw new Error('文件名必须以 .html / .htm / .md 结尾');
   }
   const path = `${cfg.github.postsDir}/${safeName}`;
   const body = {
