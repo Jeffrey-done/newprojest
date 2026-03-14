@@ -60,3 +60,17 @@
 - 使用最小权限 Fine-grained token。
 - 定期轮换 token。
 
+
+## Token 常见报错排查
+
+如果后台弹窗提示：`Resource not accessible by personal access token`，通常是权限范围问题。
+
+请检查：
+
+- Token 是否授权了你当前配置的仓库（`owner/repo`）。
+- Fine-grained token 的仓库权限里：`Contents` 是否是 **Read and write**。
+- Token 对应账号是否有仓库写权限（协作者/组织权限）。
+- `config.js` 里的 `branch` 是否存在且可写。
+
+> 后台编辑页会显示“当前写入目标”，请确认和你实际仓库一致。
+

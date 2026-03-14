@@ -11,6 +11,7 @@
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     textarea { min-height: 460px; }
     .preview { min-height: 460px; overflow: auto; }
+    .hint { margin-top: 8px; }
     @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -21,6 +22,12 @@
         <h1 id="pageTitle">新增文章</h1>
         <a class="btn ghost" href="./index.html">返回管理页</a>
       </div>
+      <div class="row" style="margin-bottom: 10px;">
+        <input id="token" type="password" placeholder="粘贴 GitHub Token（当前会话）" aria-label="GitHub Token" />
+        <button class="btn" id="saveTokenBtn">保存 Token</button>
+        <button class="btn ghost" id="clearTokenBtn">清除 Token</button>
+      </div>
+      <p class="muted hint" id="targetHint"></p>
       <div class="row">
         <input id="filename" placeholder="例如：my-first-post.md" maxlength="120" />
         <button class="btn primary" id="saveBtn">保存</button>
@@ -41,7 +48,7 @@
   </main>
 
   <script type="module">
-    import { getPostContent, upsertPost } from './utils.js';
+    import { getPostContent, upsertPost, saveToken, clearToken, getRuntimeTarget } from './utils.js';
 
     const params = new URLSearchParams(location.search);
     const filePath = params.get('file');
@@ -52,6 +59,21 @@
     const saveBtn = document.getElementById('saveBtn');
 
     let currentSha = '';
+
+    const target = getRuntimeTarget();
+    document.getElementById('targetHint').textContent = `当前写入目标：${target.owner}/${target.repo} · branch=${target.branch} · dir=${target.postsDir}`;
+
+    document.getElementById('saveTokenBtn').addEventListener('click', () => {
+      const token = document.getElementById('token').value;
+      saveToken(token);
+      alert('Token 已保存到当前会话。');
+    });
+
+    document.getElementById('clearTokenBtn').addEventListener('click', () => {
+      clearToken();
+      document.getElementById('token').value = '';
+      alert('Token 已清除。');
+    });
 
     const render = () => {
       const val = contentEl.value.trim();

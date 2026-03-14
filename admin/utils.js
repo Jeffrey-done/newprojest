@@ -10,6 +10,13 @@ function getConfig() {
   };
 }
 
+function getAuthHeaderValue(token) {
+  if (!token) return '';
+  // classic tokens (ghp_/gho_/ghu_/ghs_) use `token xxx`; fine-grained `github_pat_` uses Bearer as well.
+  if (/^(gh[pous]_)/.test(token)) return `token ${token}`;
+  return `Bearer ${token}`;
+}
+
 function buildHeaders() {
   const cfg = getConfig();
   const headers = {
@@ -17,9 +24,8 @@ function buildHeaders() {
     'Content-Type': 'application/json'
   };
 
-  if (cfg.github.token) {
-    headers.Authorization = `Bearer ${cfg.github.token}`;
-  }
+  const auth = getAuthHeaderValue(cfg.github.token);
+  if (auth) headers.Authorization = auth;
   return headers;
 }
 
@@ -39,12 +45,21 @@ function encodeBase64Utf8(str) {
 
 async function ensureOk(res, fallbackMessage) {
   if (res.ok) return;
-  let msg = fallbackMessage;
+  const cfg = getConfig();
+  let rawMessage = fallbackMessage;
   try {
     const data = await res.json();
-    msg = data.message || fallbackMessage;
+    rawMessage = data.message || fallbackMessage;
   } catch {}
-  throw new Error(msg);
+
+  let hint = '';
+  if (rawMessage.includes('Resource not accessible by personal access token')) {
+    hint = `\n建议检查：\n1) 该 Token 是否授权了仓库 ${cfg.github.owner}/${cfg.github.repo}\n2) Repository permissions -> Contents 是否为 Read and write\n3) Token 所属账号是否有该仓库写权限\n4) branch=${cfg.github.branch} 是否存在且可写`;
+  } else if (rawMessage.includes('Bad credentials')) {
+    hint = '\n建议检查：Token 是否过期、复制是否完整（无空格换行）';
+  }
+
+  throw new Error(`${fallbackMessage}（HTTP ${res.status}）\n${rawMessage}${hint}`);
 }
 
 export function saveToken(token) {
@@ -53,6 +68,16 @@ export function saveToken(token) {
 
 export function clearToken() {
   sessionStorage.removeItem('BLOG_ADMIN_TOKEN');
+}
+
+export function getRuntimeTarget() {
+  const cfg = getConfig();
+  return {
+    owner: cfg.github.owner,
+    repo: cfg.github.repo,
+    branch: cfg.github.branch,
+    postsDir: cfg.github.postsDir
+  };
 }
 
 export async function getPosts() {
