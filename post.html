@@ -63,7 +63,15 @@
 
         document.title = `${prettyTitle} - ${siteTitle}`;
         document.getElementById('title').textContent = prettyTitle;
-        document.getElementById('content').innerHTML = isHtml ? decoded : marked.parse(decoded);
+
+        const contentEl = document.getElementById('content');
+        contentEl.innerHTML = isHtml ? decoded : marked.parse(decoded);
+
+        // 避免正文里首个 H1 与页面标题重复显示
+        const firstH1 = contentEl.querySelector('h1');
+        if (firstH1 && firstH1.textContent.trim() === prettyTitle.trim()) {
+          firstH1.remove();
+        }
       } catch (e) {
         document.getElementById('title').textContent = `加载失败：${e.message}`;
       }
