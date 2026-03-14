@@ -224,3 +224,34 @@ input, textarea {
   background: #fff8f8;
   border-color: #ffd8d8;
 }
+
+.home-state-card {
+  margin-top: 10px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #fafcff;
+}
+
+.home-state-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #eef4ff;
+  font-size: 20px;
+}
+
+.home-state-card h3 {
+  margin: 0;
+}
+
+.home-state-error {
+  background: #fff8f8;
+  border-color: #ffd8d8;
+}

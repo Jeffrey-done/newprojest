@@ -72,6 +72,36 @@
       return m ? `${m[1]}-${m[2]}-${m[3]}` : '未标注日期';
     }
 
+
+    function renderHomeEmptyState() {
+      const statusEl = document.getElementById('status');
+      const postsEl = document.getElementById('posts');
+      statusEl.textContent = '';
+      postsEl.innerHTML = `
+        <article class="home-state-card home-state-empty">
+          <div class="home-state-icon">🗂️</div>
+          <h3>这里还没有文章</h3>
+          <p class="muted">站点正在准备内容，稍后再来看看吧。</p>
+          <a class="btn primary" href="#about">先了解本站</a>
+        </article>
+      `;
+    }
+
+    function renderHomeErrorState(message) {
+      const statusEl = document.getElementById('status');
+      const postsEl = document.getElementById('posts');
+      statusEl.textContent = '';
+      postsEl.innerHTML = `
+        <article class="home-state-card home-state-error">
+          <div class="home-state-icon">🌐</div>
+          <h3>文章暂时加载失败</h3>
+          <p class="muted">${message}</p>
+          <button class="btn ghost" id="homeRetryBtn">重新加载</button>
+        </article>
+      `;
+      document.getElementById('homeRetryBtn')?.addEventListener('click', loadPosts);
+    }
+
     async function loadPosts() {
       const statusEl = document.getElementById('status');
       const postsEl = document.getElementById('posts');
@@ -101,8 +131,7 @@
           .sort((a, b) => b.name.localeCompare(a.name));
 
         if (!posts.length) {
-          statusEl.textContent = '暂无文章';
-          postsEl.innerHTML = '<p class="muted">还没有内容，敬请期待。</p>';
+          renderHomeEmptyState();
           return;
         }
 
@@ -119,7 +148,12 @@
           </article>
         `).join('');
       } catch (e) {
-        statusEl.textContent = `加载失败：${e.message}`;
+        const msg = e?.message || '网络连接异常';
+        if (msg.includes('404') || msg.includes('Not Found')) {
+          renderHomeEmptyState();
+          return;
+        }
+        renderHomeErrorState(msg);
       }
     }
 
