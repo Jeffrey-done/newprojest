@@ -33,6 +33,7 @@
    - `repo`
    - `branch`
    - `token`
+   - 例如当前仓库可填写：`owner=Jeffrey-done`、`repo=newprojest`
 3. 将项目部署到 Cloudflare Pages。
 4. 访问：
    - 前台：`/`（对访客展示，Hexo 类博客风格）

@@ -7,7 +7,7 @@ window.BLOG_CONFIG = {
   },
   github: {
     owner: 'Jeffrey-done',
-    repo: 'SubScript',
+    repo: 'newprojest',
     branch: 'main',
     postsDir: 'posts',
     token: ''
