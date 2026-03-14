@@ -67,10 +67,15 @@
         const contentEl = document.getElementById('content');
         contentEl.innerHTML = isHtml ? decoded : marked.parse(decoded);
 
-        // 避免正文里首个 H1 与页面标题重复显示
-        const firstH1 = contentEl.querySelector('h1');
-        if (firstH1 && firstH1.textContent.trim() === prettyTitle.trim()) {
-          firstH1.remove();
+        // 避免正文里首个标题（h1~h6）与页面标题重复显示
+        const normalizeTitle = (text) => (text || '')
+          .replace(/\s+/g, '')
+          .replace(/[【】\[\]()（）:：·•\-—_]/g, '')
+          .toLowerCase();
+
+        const firstHeading = contentEl.querySelector('h1, h2, h3, h4, h5, h6');
+        if (firstHeading && normalizeTitle(firstHeading.textContent) === normalizeTitle(prettyTitle)) {
+          firstHeading.remove();
         }
       } catch (e) {
         document.getElementById('title').textContent = `加载失败：${e.message}`;
