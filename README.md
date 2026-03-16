@@ -33,6 +33,7 @@
    - `repo`
    - `branch`
    - `token`
+   - `uploadsDir`（本地图片上传目录）
    - 例如当前仓库可填写：`owner=Jeffrey-done`、`repo=newprojest`
 3. 将项目部署到 Cloudflare Pages。
 4. 访问：
@@ -90,7 +91,7 @@
 - 支持标题、字体样式、颜色、列表、对齐、链接、清除格式等常用排版功能。
 - 支持插入图片：
   - 图片 URL 直接插入；
-  - 本地图片可直接插入（会以 Data URL 内嵌到文章内容）。
+  - 本地图片会先上传到 GitHub 仓库（`uploadsDir`），再插入可访问链接（推荐）。
 - 新建文章时，文件名不写后缀会自动补 `.html`。
 
 - 支持粘贴 Word 内容（尽量保留基础格式）。

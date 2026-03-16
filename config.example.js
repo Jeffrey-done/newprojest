@@ -9,6 +9,7 @@ window.BLOG_CONFIG = {
     repo: 'cf-github-blog',
     branch: 'main',
     postsDir: 'posts',
+    uploadsDir: 'posts/uploads',
     token: 'ghp_xxx_replace_me'
   },
   features: {

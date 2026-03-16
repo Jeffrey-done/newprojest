@@ -66,7 +66,8 @@
         <textarea id="metaSummary" class="full" rows="3" placeholder="文章摘要（首页显示，可选）"></textarea>
       </div>
 
-      <p class="muted">接近 Word 的可视化编辑：可直接输入、排版、插图，不需要 Markdown。</p>
+      <p class="muted">接近 Word 的可视化编辑：可直接输入、排版、插图，不需要 Markdown。
+      本地图片会先上传到仓库，再插入文章，保存后不会丢失。</p>
       <div id="draftTip" class="draft-tip">草稿自动保存：未开始</div>
     </section>
 
@@ -105,7 +106,7 @@
   </main>
 
   <script type="module">
-    import { getPostContent, upsertPost, saveToken, clearToken, getRuntimeTarget } from './utils.js';
+    import { getPostContent, upsertPost, uploadImageAsset, saveToken, clearToken, getRuntimeTarget } from './utils.js';
 
     const params = new URLSearchParams(location.search);
     const filePath = params.get('file');
@@ -129,7 +130,7 @@
     let lastDraftSnapshot = '';
 
     const target = getRuntimeTarget();
-    document.getElementById('targetHint').textContent = `当前写入目标：${target.owner}/${target.repo} · branch=${target.branch} · dir=${target.postsDir}`;
+    document.getElementById('targetHint').textContent = `当前写入目标：${target.owner}/${target.repo} · branch=${target.branch} · dir=${target.postsDir} · uploads=${target.uploadsDir}`;
 
     const draftKey = () => `GBLOG_DRAFT_${target.owner}_${target.repo}_${filePath || 'new'}`;
 
@@ -241,25 +242,32 @@
     }
 
     function bindImageHandler() {
-      imageInput.addEventListener('change', () => {
+      imageInput.addEventListener('change', async () => {
         const file = imageInput.files?.[0];
         if (!file) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-          const dataUrl = reader.result;
+
+        try {
+          draftTipEl.textContent = '正在上传图片到仓库...';
+          const imageUrl = await uploadImageAsset(file);
+
           if (quill) {
             const range = quill.getSelection(true);
             const index = range ? range.index : quill.getLength();
-            quill.insertEmbed(index, 'image', dataUrl, 'user');
+            quill.insertEmbed(index, 'image', imageUrl, 'user');
             quill.setSelection(index + 1, 0);
           } else {
-            document.execCommand('insertImage', false, dataUrl);
+            document.execCommand('insertImage', false, imageUrl);
           }
+
           renderPreview();
           saveDraft();
-        };
-        reader.readAsDataURL(file);
-        imageInput.value = '';
+          draftTipEl.textContent = '图片已上传并插入';
+        } catch (err) {
+          alert(err.message || '上传图片失败');
+          draftTipEl.textContent = '图片上传失败，请检查 Token 与仓库权限';
+        } finally {
+          imageInput.value = '';
+        }
       });
     }
 

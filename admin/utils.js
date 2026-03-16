@@ -5,7 +5,8 @@ function getConfig() {
     ...base,
     github: {
       ...base.github,
-      token: savedToken || base?.github?.token || ''
+      token: savedToken || base?.github?.token || '',
+      uploadsDir: base?.github?.uploadsDir || `${base?.github?.postsDir || 'posts'}/uploads`
     }
   };
 }
@@ -42,6 +43,19 @@ function encodeBase64Utf8(str) {
   return btoa(unescape(encodeURIComponent(str)));
 }
 
+async function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result || '');
+      const base64 = dataUrl.split(',')[1] || '';
+      resolve(base64);
+    };
+    reader.onerror = () => reject(new Error('读取图片失败'));
+    reader.readAsDataURL(file);
+  });
+}
+
 async function ensureOk(res, fallbackMessage) {
   if (res.ok) return;
   const cfg = getConfig();
@@ -75,7 +89,8 @@ export function getRuntimeTarget() {
     owner: cfg.github.owner,
     repo: cfg.github.repo,
     branch: cfg.github.branch,
-    postsDir: cfg.github.postsDir
+    postsDir: cfg.github.postsDir,
+    uploadsDir: cfg.github.uploadsDir
   };
 }
 
@@ -108,6 +123,30 @@ export async function getPostContent(filePath) {
   await ensureOk(res, '获取文章内容失败');
   const data = await res.json();
   return { content: decodeBase64Utf8(data.content), sha: data.sha, name: data.name };
+}
+
+export async function uploadImageAsset(file) {
+  const cfg = getConfig();
+  const ext = (file.name.split('.').pop() || 'png').toLowerCase();
+  const stamp = new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14);
+  const safeName = `img-${stamp}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const path = `${cfg.github.uploadsDir}/${safeName}`;
+  const base64 = await fileToBase64(file);
+
+  const body = {
+    message: `Upload image: ${safeName}`,
+    content: base64,
+    branch: cfg.github.branch
+  };
+
+  const res = await fetch(buildApi(`/contents/${path}`), {
+    method: 'PUT',
+    headers: buildHeaders(),
+    body: JSON.stringify(body)
+  });
+  await ensureOk(res, '上传图片失败');
+
+  return `https://raw.githubusercontent.com/${cfg.github.owner}/${cfg.github.repo}/${cfg.github.branch}/${path}`;
 }
 
 export async function upsertPost({ filename, content, sha }) {

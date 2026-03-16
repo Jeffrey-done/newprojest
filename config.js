@@ -10,6 +10,7 @@ window.BLOG_CONFIG = {
     repo: 'newprojest',
     branch: 'main',
     postsDir: 'posts',
+    uploadsDir: 'posts/uploads',
     token: ''
   },
   features: {
