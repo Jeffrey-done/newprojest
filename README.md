@@ -43,6 +43,20 @@
 > 注意：`token` 放前端仅适合个人使用。生产建议用 Cloudflare Worker 作为中间层隐藏 token。
 
 
+## 推荐：开启代理模式（隐藏 GitHub Token）
+
+为避免在浏览器里暴露 Token，项目已内置 `functions/api/github/[[path]].js`。
+
+配置步骤：
+
+1. 在 Cloudflare Pages 项目里添加环境变量：`GITHUB_TOKEN`（有仓库 Contents 读写权限）。
+2. 在 `config.js` 中开启：
+   - `github.useProxy = true`
+   - `github.proxyBase = '/api/github'`
+3. 重新部署后，后台将通过 Pages Functions 代理访问 GitHub API，前端不再需要粘贴 Token。
+
+> 本地开发若不跑 Functions，可先保持 `useProxy: false`。
+
 ## Cloudflare Pages 部署（避免构建报错）
 
 如果你在 Pages 日志里看到：`Executing user command: None` 并报 `/bin/sh: 1: None: not found`，说明 **Build command 被错误地填写成了字符串 `None`**。

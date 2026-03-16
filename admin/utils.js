@@ -6,7 +6,9 @@ function getConfig() {
     github: {
       ...base.github,
       token: savedToken || base?.github?.token || '',
-      uploadsDir: base?.github?.uploadsDir || `${base?.github?.postsDir || 'posts'}/uploads`
+      uploadsDir: base?.github?.uploadsDir || `${base?.github?.postsDir || 'posts'}/uploads`,
+      useProxy: Boolean(base?.github?.useProxy),
+      proxyBase: base?.github?.proxyBase || '/api/github'
     }
   };
 }
@@ -24,13 +26,19 @@ function buildHeaders() {
     'Content-Type': 'application/json'
   };
 
-  const auth = getAuthHeaderValue(cfg.github.token);
-  if (auth) headers.Authorization = auth;
+  if (!cfg.github.useProxy) {
+    const auth = getAuthHeaderValue(cfg.github.token);
+    if (auth) headers.Authorization = auth;
+  }
+
   return headers;
 }
 
 function buildApi(path = '') {
   const cfg = getConfig();
+  if (cfg.github.useProxy) {
+    return `${cfg.github.proxyBase}/repos/${cfg.github.owner}/${cfg.github.repo}${path}`;
+  }
   return `https://api.github.com/repos/${cfg.github.owner}/${cfg.github.repo}${path}`;
 }
 
@@ -66,7 +74,9 @@ async function ensureOk(res, fallbackMessage) {
   } catch {}
 
   let hint = '';
-  if (rawMessage.includes('Resource not accessible by personal access token')) {
+  if (cfg.github.useProxy && res.status === 500) {
+    hint = '\n建议检查：Cloudflare Pages -> Settings -> Functions -> Environment variables 是否配置 GITHUB_TOKEN';
+  } else if (rawMessage.includes('Resource not accessible by personal access token')) {
     hint = `\n建议检查：\n1) 该 Token 是否授权了仓库 ${cfg.github.owner}/${cfg.github.repo}\n2) Repository permissions -> Contents 是否为 Read and write\n3) Token 所属账号是否有该仓库写权限\n4) branch=${cfg.github.branch} 是否存在且可写`;
   } else if (rawMessage.includes('Bad credentials')) {
     hint = '\n建议检查：Token 是否过期、复制是否完整（无空格换行）';
@@ -90,7 +100,8 @@ export function getRuntimeTarget() {
     repo: cfg.github.repo,
     branch: cfg.github.branch,
     postsDir: cfg.github.postsDir,
-    uploadsDir: cfg.github.uploadsDir
+    uploadsDir: cfg.github.uploadsDir,
+    useProxy: cfg.github.useProxy
   };
 }
 

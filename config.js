@@ -11,7 +11,9 @@ window.BLOG_CONFIG = {
     branch: 'main',
     postsDir: 'posts',
     uploadsDir: 'posts/uploads',
-    token: ''
+    token: '',
+    useProxy: false,
+    proxyBase: '/api/github'
   },
   features: {
     showDrafts: false,

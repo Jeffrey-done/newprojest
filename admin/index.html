@@ -19,8 +19,8 @@
           <a class="btn primary" href="./edit.html">新增文章</a>
         </div>
       </div>
-      <p class="muted">建议使用最小权限 Token；Token 只存储在当前浏览器会话中。</p>
-      <div class="row">
+      <p class="muted" id="authTip">建议使用最小权限 Token；Token 只存储在当前浏览器会话中。</p>
+      <div class="row" id="tokenRow">
         <input id="token" type="password" placeholder="粘贴 GitHub Token（仅当前会话有效）" aria-label="GitHub Token" />
         <button class="btn" id="saveTokenBtn">保存 Token</button>
         <button class="btn ghost" id="clearTokenBtn">清除 Token</button>
@@ -38,10 +38,18 @@
   </main>
 
   <script type="module">
-    import { getPosts, removePost, saveToken, clearToken } from './utils.js';
+    import { getPosts, removePost, saveToken, clearToken, getRuntimeTarget } from './utils.js';
 
     const listEl = document.getElementById('postList');
     const statusEl = document.getElementById('status');
+
+    const runtime = getRuntimeTarget();
+    const authTipEl = document.getElementById('authTip');
+    const tokenRowEl = document.getElementById('tokenRow');
+    if (runtime.useProxy) {
+      tokenRowEl.style.display = 'none';
+      authTipEl.textContent = '当前使用 Cloudflare Pages Functions 代理模式，前端无需输入 GitHub Token。';
+    }
 
     function renderEmptyState() {
       statusEl.textContent = '';

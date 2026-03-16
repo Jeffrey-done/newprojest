@@ -130,7 +130,11 @@
     let lastDraftSnapshot = '';
 
     const target = getRuntimeTarget();
-    document.getElementById('targetHint').textContent = `当前写入目标：${target.owner}/${target.repo} · branch=${target.branch} · dir=${target.postsDir} · uploads=${target.uploadsDir}`;
+    const tokenRow = document.querySelector('.row');
+    if (target.useProxy && tokenRow) tokenRow.style.display = 'none';
+    document.getElementById('targetHint').textContent = target.useProxy
+      ? `当前写入目标：${target.owner}/${target.repo} · branch=${target.branch} · dir=${target.postsDir} · uploads=${target.uploadsDir}（通过代理）`
+      : `当前写入目标：${target.owner}/${target.repo} · branch=${target.branch} · dir=${target.postsDir} · uploads=${target.uploadsDir}`;
 
     const draftKey = () => `GBLOG_DRAFT_${target.owner}_${target.repo}_${filePath || 'new'}`;
 

@@ -10,7 +10,9 @@ window.BLOG_CONFIG = {
     branch: 'main',
     postsDir: 'posts',
     uploadsDir: 'posts/uploads',
-    token: 'ghp_xxx_replace_me'
+    token: 'ghp_xxx_replace_me',
+    useProxy: false,
+    proxyBase: '/api/github'
   },
   features: {
     showDrafts: false,
