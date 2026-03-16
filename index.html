@@ -22,6 +22,9 @@
     </header>
 
     <section class="leed-list-wrap">
+      <div class="leed-search-wrap">
+        <input id="searchInput" class="leed-search" placeholder="Search title / summary / tags" />
+      </div>
       <div id="status" class="leed-status">加载中...</div>
       <div id="posts"></div>
     </section>
@@ -29,12 +32,36 @@
 
   <script>
     const cfg = window.BLOG_CONFIG;
+    let allPosts = [];
+
+    function parseMetaFromContent(raw) {
+      const text = raw || '';
+      const m = text.match(/^<!--GBLOG_META:(\{[\s\S]*?\})-->\n?/);
+      if (!m) return { meta: {}, body: text };
+      try {
+        return { meta: JSON.parse(m[1]), body: text.replace(m[0], '') };
+      } catch {
+        return { meta: {}, body: text.replace(m[0], '') };
+      }
+    }
+
+    function stripHtml(html) {
+      const temp = document.createElement('div');
+      temp.innerHTML = html || '';
+      return (temp.textContent || temp.innerText || '').trim();
+    }
 
     function formatName(fileName) {
       return fileName.replace(/\.(md|html?)$/i, '').replace(/[-_]/g, ' ');
     }
 
-    function extractDateLike(fileName) {
+    function extractDateLike(fileName, metaDate) {
+      if (metaDate) {
+        const dt = new Date(metaDate);
+        if (!Number.isNaN(dt.getTime())) {
+          return dt.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }).toUpperCase();
+        }
+      }
       const m = fileName.match(/(\d{4})[-_](\d{2})[-_](\d{2})/);
       if (m) {
         const dt = new Date(`${m[1]}-${m[2]}-${m[3]}`);
@@ -43,19 +70,53 @@
       return 'RECENT';
     }
 
-    function renderEmptyState() {
+    function renderEmptyState(msg = '内容正在准备中，请稍后再来。') {
       document.getElementById('status').textContent = '';
       document.getElementById('posts').innerHTML = `
         <article class="leed-empty">
           <h3>NO POSTS YET</h3>
-          <p>内容正在准备中，请稍后再来。</p>
+          <p>${msg}</p>
         </article>
       `;
     }
 
+    function renderPosts(posts) {
+      const postsEl = document.getElementById('posts');
+      const statusEl = document.getElementById('status');
+
+      if (!posts.length) {
+        renderEmptyState('没有匹配结果，换个关键词试试。');
+        return;
+      }
+
+      statusEl.textContent = `${posts.length} POSTS`;
+      postsEl.innerHTML = posts.map((post) => `
+        <article class="leed-post-row">
+          <time class="leed-post-date">${post.displayDate}</time>
+          <div>
+            <a class="leed-post-title" href="post.html?file=${encodeURIComponent(post.path)}">${post.title}</a>
+            ${post.summary ? `<p class="leed-post-summary">${post.summary}</p>` : ''}
+            ${post.tags?.length ? `<p class="leed-post-tags">${post.tags.map(t => `#${t}`).join(' ')}</p>` : ''}
+          </div>
+        </article>
+      `).join('');
+    }
+
+    function applySearch() {
+      const kw = document.getElementById('searchInput').value.trim().toLowerCase();
+      if (!kw) {
+        renderPosts(allPosts);
+        return;
+      }
+      const filtered = allPosts.filter((p) => {
+        const blob = `${p.title} ${p.summary || ''} ${(p.tags || []).join(' ')}`.toLowerCase();
+        return blob.includes(kw);
+      });
+      renderPosts(filtered);
+    }
+
     async function loadPosts() {
       const statusEl = document.getElementById('status');
-      const postsEl = document.getElementById('posts');
       const title = (cfg?.site?.title || 'Gblog').toUpperCase();
       const desc = cfg?.site?.description || '';
 
@@ -69,27 +130,51 @@
       }
 
       try {
-        const url = `https://api.github.com/repos/${cfg.github.owner}/${cfg.github.repo}/contents/${cfg.github.postsDir}?ref=${cfg.github.branch}`;
-        const res = await fetch(url);
+        const listUrl = `https://api.github.com/repos/${cfg.github.owner}/${cfg.github.repo}/contents/${cfg.github.postsDir}?ref=${cfg.github.branch}`;
+        const res = await fetch(listUrl);
         if (!res.ok) throw new Error(`加载失败 (${res.status})`);
 
         const files = await res.json();
-        const posts = files
+        const postFiles = files
           .filter((f) => f.type === 'file' && /\.(md|html?)$/i.test(f.name))
           .sort((a, b) => b.name.localeCompare(a.name));
 
-        if (!posts.length) {
+        if (!postFiles.length) {
           renderEmptyState();
           return;
         }
 
-        statusEl.textContent = '';
-        postsEl.innerHTML = posts.map((post) => `
-          <article class="leed-post-row">
-            <time class="leed-post-date">${extractDateLike(post.name)}</time>
-            <a class="leed-post-title" href="post.html?file=${encodeURIComponent(post.path)}">${formatName(post.name)}</a>
-          </article>
-        `).join('');
+        statusEl.textContent = '加载内容中...';
+        const detailed = await Promise.all(postFiles.map(async (f) => {
+          try {
+            const r = await fetch(`https://api.github.com/repos/${cfg.github.owner}/${cfg.github.repo}/contents/${f.path}?ref=${cfg.github.branch}`);
+            if (!r.ok) throw new Error('fetch fail');
+            const d = await r.json();
+            const decoded = decodeURIComponent(escape(atob((d.content || '').replace(/\n/g, ''))));
+            const { meta, body } = parseMetaFromContent(decoded);
+            const plainBody = /\.html?$/i.test(f.name) ? stripHtml(body) : body;
+            return {
+              path: f.path,
+              title: meta.title || formatName(f.name),
+              summary: meta.summary || plainBody.slice(0, 90),
+              tags: Array.isArray(meta.tags) ? meta.tags : [],
+              displayDate: extractDateLike(f.name, meta.date),
+              sortKey: meta.date || f.name
+            };
+          } catch {
+            return {
+              path: f.path,
+              title: formatName(f.name),
+              summary: '',
+              tags: [],
+              displayDate: extractDateLike(f.name),
+              sortKey: f.name
+            };
+          }
+        }));
+
+        allPosts = detailed.sort((a, b) => String(b.sortKey).localeCompare(String(a.sortKey)));
+        renderPosts(allPosts);
       } catch (e) {
         const msg = e?.message || '网络异常';
         if (msg.includes('404') || msg.includes('Not Found')) {
@@ -100,6 +185,7 @@
       }
     }
 
+    document.getElementById('searchInput').addEventListener('input', applySearch);
     loadPosts();
   </script>
 </body>

@@ -9,13 +9,14 @@
   <link rel="stylesheet" href="../assets/style.css" />
   <script src="../config.js"></script>
 
-  <!-- Word-like rich editor (Quill) -->
   <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
 
   <style>
     .hint { margin-top: 8px; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0; }
+    .meta-grid .full { grid-column: 1 / -1; }
     .preview-box {
       min-height: 470px;
       border: 1px solid var(--border);
@@ -24,38 +25,16 @@
       background: #fff;
       overflow: auto;
     }
-    #editorWrap {
-      background: #fff;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      overflow: hidden;
-    }
-    #editorToolbar {
-      border-bottom: 1px solid var(--border);
-      background: #fafafa;
-    }
-    #editor {
-      min-height: 420px;
-      font-size: 16px;
-      line-height: 1.7;
-    }
+    #editorWrap { background: #fff; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    #editorToolbar { border-bottom: 1px solid var(--border); background: #fafafa; }
+    #editor { min-height: 420px; font-size: 16px; line-height: 1.7; }
     .fallback-editor {
-      min-height: 420px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: #fff;
-      padding: 12px;
-      outline: none;
-      overflow: auto;
+      min-height: 420px; border: 1px solid var(--border); border-radius: 8px;
+      background: #fff; padding: 12px; outline: none; overflow: auto;
     }
-    .editor-tip {
-      margin: 6px 0 0;
-      color: #7b8190;
-      font-size: 13px;
-    }
-    @media (max-width: 900px) {
-      .grid { grid-template-columns: 1fr; }
-    }
+    .editor-tip { margin: 6px 0 0; color: #7b8190; font-size: 13px; }
+    .draft-tip { font-size: 13px; color: #5f6574; margin-top: 8px; }
+    @media (max-width: 900px) { .grid, .meta-grid { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
@@ -78,7 +57,17 @@
         <input id="filename" placeholder="文章名（可不写后缀，会自动补 .html）" maxlength="120" />
         <button class="btn primary" id="saveBtn">保存</button>
       </div>
-      <p class="muted">已升级为接近 Word 的可视化编辑：可直接输入、改字体样式、对齐、插图，不需要 Markdown。</p>
+
+      <div class="meta-grid">
+        <input id="metaTitle" class="full" placeholder="文章标题（前台展示标题）" />
+        <input id="metaDate" type="date" placeholder="发布日期" />
+        <input id="metaTags" placeholder="标签（用英文逗号分隔）" />
+        <input id="metaCover" class="full" placeholder="封面图 URL（可选）" />
+        <textarea id="metaSummary" class="full" rows="3" placeholder="文章摘要（首页显示，可选）"></textarea>
+      </div>
+
+      <p class="muted">接近 Word 的可视化编辑：可直接输入、排版、插图，不需要 Markdown。</p>
+      <div id="draftTip" class="draft-tip">草稿自动保存：未开始</div>
     </section>
 
     <section class="grid">
@@ -88,50 +77,23 @@
         <div id="editorWrap">
           <div id="editorToolbar">
             <span class="ql-formats">
-              <select class="ql-header">
-                <option selected></option>
-                <option value="1"></option>
-                <option value="2"></option>
-                <option value="3"></option>
-              </select>
+              <select class="ql-header"><option selected></option><option value="1"></option><option value="2"></option><option value="3"></option></select>
               <select class="ql-font"></select>
             </span>
             <span class="ql-formats">
-              <button class="ql-bold"></button>
-              <button class="ql-italic"></button>
-              <button class="ql-underline"></button>
-              <button class="ql-strike"></button>
+              <button class="ql-bold"></button><button class="ql-italic"></button><button class="ql-underline"></button><button class="ql-strike"></button>
             </span>
-            <span class="ql-formats">
-              <select class="ql-color"></select>
-              <select class="ql-background"></select>
-            </span>
-            <span class="ql-formats">
-              <button class="ql-list" value="ordered"></button>
-              <button class="ql-list" value="bullet"></button>
-              <button class="ql-indent" value="-1"></button>
-              <button class="ql-indent" value="+1"></button>
-            </span>
-            <span class="ql-formats">
-              <button class="ql-align" value=""></button>
-              <button class="ql-align" value="center"></button>
-              <button class="ql-align" value="right"></button>
-              <button class="ql-align" value="justify"></button>
-            </span>
-            <span class="ql-formats">
-              <button class="ql-link"></button>
-              <button class="ql-image"></button>
-            </span>
-            <span class="ql-formats">
-              <button class="ql-clean"></button>
-            </span>
+            <span class="ql-formats"><select class="ql-color"></select><select class="ql-background"></select></span>
+            <span class="ql-formats"><button class="ql-list" value="ordered"></button><button class="ql-list" value="bullet"></button><button class="ql-indent" value="-1"></button><button class="ql-indent" value="+1"></button></span>
+            <span class="ql-formats"><button class="ql-align" value=""></button><button class="ql-align" value="center"></button><button class="ql-align" value="right"></button><button class="ql-align" value="justify"></button></span>
+            <span class="ql-formats"><button class="ql-link"></button><button class="ql-image"></button></span>
+            <span class="ql-formats"><button class="ql-clean"></button></span>
           </div>
           <div id="editor"></div>
         </div>
 
         <div id="fallbackEditor" class="fallback-editor" contenteditable="true" style="display:none;"></div>
         <p class="editor-tip" id="editorTip"></p>
-
         <input id="imageLocalInput" type="file" accept="image/*" style="display:none" />
       </article>
 
@@ -153,14 +115,64 @@
     const saveBtn = document.getElementById('saveBtn');
     const editorTipEl = document.getElementById('editorTip');
     const fallbackEditorEl = document.getElementById('fallbackEditor');
-
     const imageInput = document.getElementById('imageLocalInput');
+    const draftTipEl = document.getElementById('draftTip');
+
+    const metaTitleEl = document.getElementById('metaTitle');
+    const metaDateEl = document.getElementById('metaDate');
+    const metaTagsEl = document.getElementById('metaTags');
+    const metaCoverEl = document.getElementById('metaCover');
+    const metaSummaryEl = document.getElementById('metaSummary');
 
     let currentSha = '';
     let quill = null;
+    let lastDraftSnapshot = '';
 
     const target = getRuntimeTarget();
     document.getElementById('targetHint').textContent = `当前写入目标：${target.owner}/${target.repo} · branch=${target.branch} · dir=${target.postsDir}`;
+
+    const draftKey = () => `GBLOG_DRAFT_${target.owner}_${target.repo}_${filePath || 'new'}`;
+
+    function parseMetaFromContent(raw) {
+      const text = raw || '';
+      const m = text.match(/^<!--GBLOG_META:(\{[\s\S]*?\})-->\n?/);
+      if (!m) return { meta: {}, body: text };
+      try {
+        return { meta: JSON.parse(m[1]), body: text.replace(m[0], '') };
+      } catch {
+        return { meta: {}, body: text.replace(m[0], '') };
+      }
+    }
+
+    function buildMetaObject() {
+      const tags = metaTagsEl.value.split(',').map(s => s.trim()).filter(Boolean);
+      const meta = {
+        title: metaTitleEl.value.trim(),
+        date: metaDateEl.value.trim(),
+        tags,
+        cover: metaCoverEl.value.trim(),
+        summary: metaSummaryEl.value.trim()
+      };
+      Object.keys(meta).forEach((k) => {
+        const v = meta[k];
+        if (!v || (Array.isArray(v) && !v.length)) delete meta[k];
+      });
+      return meta;
+    }
+
+    function composeContent(bodyHtml) {
+      const meta = buildMetaObject();
+      const metaBlock = Object.keys(meta).length ? `<!--GBLOG_META:${JSON.stringify(meta)}-->\n` : '';
+      return `${metaBlock}${bodyHtml}`;
+    }
+
+    function fillMeta(meta = {}) {
+      metaTitleEl.value = meta.title || '';
+      metaDateEl.value = meta.date || '';
+      metaTagsEl.value = Array.isArray(meta.tags) ? meta.tags.join(', ') : '';
+      metaCoverEl.value = meta.cover || '';
+      metaSummaryEl.value = meta.summary || '';
+    }
 
     document.getElementById('saveTokenBtn').addEventListener('click', () => {
       const token = document.getElementById('token').value;
@@ -180,17 +192,52 @@
     }
 
     function setEditorHtml(html) {
-      if (quill) {
-        quill.root.innerHTML = html;
-      } else {
-        fallbackEditorEl.innerHTML = html;
-      }
+      if (quill) quill.root.innerHTML = html;
+      else fallbackEditorEl.innerHTML = html;
       renderPreview();
     }
 
     function renderPreview() {
       const html = getEditorHtml();
       previewEl.innerHTML = (html && html.trim()) ? html : '<span class="muted">开始编辑后显示预览</span>';
+    }
+
+    function currentSnapshot() {
+      return JSON.stringify({
+        filename: filenameEl.value,
+        meta: buildMetaObject(),
+        body: getEditorHtml()
+      });
+    }
+
+    function saveDraft() {
+      const snap = currentSnapshot();
+      if (!snap || snap === lastDraftSnapshot) return;
+      localStorage.setItem(draftKey(), snap);
+      lastDraftSnapshot = snap;
+      draftTipEl.textContent = `草稿自动保存：${new Date().toLocaleTimeString()}`;
+    }
+
+    function restoreDraftIfExists() {
+      const raw = localStorage.getItem(draftKey());
+      if (!raw) return false;
+      try {
+        const data = JSON.parse(raw);
+        if (!filePath && data.filename) filenameEl.value = data.filename;
+        fillMeta(data.meta || {});
+        setEditorHtml(data.body || '<p></p>');
+        draftTipEl.textContent = '草稿自动保存：已恢复本地草稿';
+        lastDraftSnapshot = currentSnapshot();
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    function clearDraft() {
+      localStorage.removeItem(draftKey());
+      draftTipEl.textContent = '草稿自动保存：已清除';
+      lastDraftSnapshot = '';
     }
 
     function bindImageHandler() {
@@ -209,6 +256,7 @@
             document.execCommand('insertImage', false, dataUrl);
           }
           renderPreview();
+          saveDraft();
         };
         reader.readAsDataURL(file);
         imageInput.value = '';
@@ -219,7 +267,7 @@
       if (!window.Quill) {
         document.getElementById('editorWrap').style.display = 'none';
         fallbackEditorEl.style.display = 'block';
-        fallbackEditorEl.addEventListener('input', renderPreview);
+        fallbackEditorEl.addEventListener('input', () => { renderPreview(); saveDraft(); });
         editorTipEl.textContent = '当前环境未加载富文本引擎，已自动切换到基础编辑模式。';
         return;
       }
@@ -228,18 +276,17 @@
         theme: 'snow',
         placeholder: '像写 Word 一样直接输入内容…',
         modules: {
-          toolbar: {
-            container: '#editorToolbar',
-            handlers: {
-              image: () => imageInput.click()
-            }
-          }
+          toolbar: { container: '#editorToolbar', handlers: { image: () => imageInput.click() } }
         }
       });
 
-      quill.on('text-change', renderPreview);
+      quill.on('text-change', () => { renderPreview(); saveDraft(); });
       editorTipEl.textContent = '支持粘贴 Word 内容（会尽量保留格式），也支持插入本地图片。';
     }
+
+    [metaTitleEl, metaDateEl, metaTagsEl, metaCoverEl, metaSummaryEl, filenameEl].forEach((el) => {
+      el.addEventListener('input', saveDraft);
+    });
 
     function ensureFilename(raw) {
       const name = raw.trim();
@@ -254,6 +301,8 @@
 
       if (!filePath) {
         setEditorHtml('<h2>请输入标题</h2><p>在这里开始写内容…</p>');
+        restoreDraftIfExists();
+        setInterval(saveDraft, 5000);
         return;
       }
 
@@ -263,30 +312,37 @@
       filenameEl.value = name;
       filenameEl.readOnly = true;
 
+      const { meta, body } = parseMetaFromContent(content);
+      fillMeta(meta);
+
       if (/\.md$/i.test(name)) {
-        const escaped = content.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+        const escaped = body.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
         setEditorHtml(`<p>${escaped}</p>`);
       } else {
-        setEditorHtml(content);
+        setEditorHtml(body);
       }
+
+      restoreDraftIfExists();
+      setInterval(saveDraft, 5000);
     }
 
     saveBtn.addEventListener('click', async () => {
       const filename = ensureFilename(filenameEl.value);
-      const contentHtml = getEditorHtml().trim();
+      const bodyHtml = getEditorHtml().trim();
 
       if (!filename) {
         alert('请输入文章名');
         return;
       }
-      if (!contentHtml || contentHtml === '<p><br></p>' || contentHtml === '<br>') {
+      if (!bodyHtml || bodyHtml === '<p><br></p>' || bodyHtml === '<br>') {
         alert('内容不能为空');
         return;
       }
 
       saveBtn.disabled = true;
       try {
-        await upsertPost({ filename, content: contentHtml, sha: currentSha });
+        await upsertPost({ filename, content: composeContent(bodyHtml), sha: currentSha });
+        clearDraft();
         alert('保存成功');
         location.href = './index.html';
       } catch (e) {

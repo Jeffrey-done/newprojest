@@ -23,6 +23,7 @@
       <a href="index.html" class="leed-back">← 返回首页</a>
       <p class="leed-article-date" id="articleDate"></p>
       <h1 id="title" class="leed-article-title">加载中...</h1>
+      <img id="cover" class="leed-article-cover" style="display:none" alt="cover" />
       <article class="leed-content markdown" id="content"></article>
     </article>
   </main>
@@ -32,11 +33,26 @@
     const filePath = params.get('file');
     const cfg = window.BLOG_CONFIG;
 
+    function parseMetaFromContent(raw) {
+      const text = raw || '';
+      const m = text.match(/^<!--GBLOG_META:(\{[\s\S]*?\})-->\n?/);
+      if (!m) return { meta: {}, body: text };
+      try {
+        return { meta: JSON.parse(m[1]), body: text.replace(m[0], '') };
+      } catch {
+        return { meta: {}, body: text.replace(m[0], '') };
+      }
+    }
+
     function formatName(fileName) {
       return fileName.replace(/\.(md|html?)$/i, '').replace(/[-_]/g, ' ');
     }
 
-    function dateFromPath(path) {
+    function dateFromPath(path, metaDate) {
+      if (metaDate) {
+        const dt = new Date(metaDate);
+        if (!Number.isNaN(dt.getTime())) return dt.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+      }
       const m = (path || '').match(/(\d{4})[-_](\d{2})[-_](\d{2})/);
       if (!m) return '';
       const dt = new Date(`${m[1]}-${m[2]}-${m[3]}`);
@@ -58,15 +74,23 @@
 
         const data = await res.json();
         const decoded = decodeURIComponent(escape(atob((data.content || '').replace(/\n/g, ''))));
-        const prettyTitle = formatName(data.name);
+        const { meta, body } = parseMetaFromContent(decoded);
+
+        const prettyTitle = meta.title || formatName(data.name);
         const isHtml = /\.html?$/i.test(data.name || '');
 
         document.title = `${prettyTitle} - ${siteTitle}`;
-        document.getElementById('articleDate').textContent = dateFromPath(data.path);
+        document.getElementById('articleDate').textContent = dateFromPath(data.path, meta.date);
         document.getElementById('title').textContent = prettyTitle;
 
+        const coverEl = document.getElementById('cover');
+        if (meta.cover) {
+          coverEl.src = meta.cover;
+          coverEl.style.display = 'block';
+        }
+
         const contentEl = document.getElementById('content');
-        contentEl.innerHTML = isHtml ? decoded : marked.parse(decoded);
+        contentEl.innerHTML = isHtml ? body : marked.parse(body);
 
         const normalizeTitle = (text) => (text || '')
           .replace(/\s+/g, '')
