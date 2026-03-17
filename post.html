@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/assets/icons/favicon.svg" />
+  <link rel="apple-touch-icon" href="/assets/icons/favicon.svg" />
+  <title>文章详情</title>
+  <link rel="stylesheet" href="assets/style.css" />
+  <script src="assets/marked.min.js"></script>
+  <script src="config.js"></script>
+</head>
+<body class="theme-leedom">
+  <main class="leed-container leed-article-wrap">
+    <header class="leed-header">
+      <a class="leed-brand" href="./index.html" id="siteTitle">GBLOG</a>
+      <div class="leed-icons" aria-label="quick links">
+        <a href="./index.html" title="Home">⌂</a>
+      </div>
+    </header>
+
+    <article class="leed-article">
+      <a href="index.html" class="leed-back">← 返回首页</a>
+      <p class="leed-article-date" id="articleDate"></p>
+      <p class="leed-article-read" id="articleRead"></p>
+      <h1 id="title" class="leed-article-title">加载中...</h1>
+      <img id="cover" class="leed-article-cover" style="display:none" alt="cover" />
+      <article class="leed-content markdown" id="content"></article>
+    </article>
+  </main>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const filePath = params.get('file');
+    const cfg = window.BLOG_CONFIG;
+
+    function parseMetaFromContent(raw) {
+      const text = raw || '';
+      const m = text.match(/^<!--GBLOG_META:(\{[\s\S]*?\})-->\n?/);
+      if (!m) return { meta: {}, body: text };
+      try {
+        return { meta: JSON.parse(m[1]), body: text.replace(m[0], '') };
+      } catch {
+        return { meta: {}, body: text.replace(m[0], '') };
+      }
+    }
+
+    function formatName(fileName) {
+      return fileName.replace(/\.(md|html?)$/i, '').replace(/[-_]/g, ' ');
+    }
+
+
+    function canReadPost(meta = {}) {
+      const status = String(meta.status || 'published').toLowerCase();
+      const previewMode = new URLSearchParams(location.search).get('preview') === '1';
+      if (cfg?.features?.showDrafts || previewMode) return true;
+      return status !== 'draft';
+    }
+
+
+    function estimateReadMinutes(text = '') {
+      const plain = String(text || '').replace(/\s+/g, '');
+      return Math.max(1, Math.ceil(plain.length / 400));
+    }
+
+    function dateFromPath(path, metaDate) {
+      if (metaDate) {
+        const dt = new Date(metaDate);
+        if (!Number.isNaN(dt.getTime())) return dt.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+      }
+      const m = (path || '').match(/(\d{4})[-_](\d{2})[-_](\d{2})/);
+      if (!m) return '';
+      const dt = new Date(`${m[1]}-${m[2]}-${m[3]}`);
+      return dt.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+    }
+
+    async function loadPost() {
+      const siteTitle = (cfg?.site?.title || 'Gblog').toUpperCase();
+      document.getElementById('siteTitle').textContent = siteTitle;
+
+      if (!filePath) {
+        document.getElementById('title').textContent = '缺少 file 参数';
+        return;
+      }
+
+      try {
+        const res = await fetch(`https://api.github.com/repos/${cfg.github.owner}/${cfg.github.repo}/contents/${filePath}?ref=${cfg.github.branch}`);
+        if (!res.ok) throw new Error(`加载失败 (${res.status})`);
+
+        const data = await res.json();
+        const decoded = decodeURIComponent(escape(atob((data.content || '').replace(/\n/g, ''))));
+        const { meta, body } = parseMetaFromContent(decoded);
+
+        if (!canReadPost(meta)) {
+          throw new Error('文章未公开发布');
+        }
+
+        const prettyTitle = meta.title || formatName(data.name);
+        const isHtml = /\.html?$/i.test(data.name || '');
+
+        document.title = `${prettyTitle} - ${siteTitle}`;
+        document.getElementById('articleDate').textContent = dateFromPath(data.path, meta.date);
+        document.getElementById('title').textContent = prettyTitle;
+
+        const coverEl = document.getElementById('cover');
+        if (meta.cover) {
+          coverEl.src = meta.cover;
+          coverEl.style.display = 'block';
+        }
+
+        const contentEl = document.getElementById('content');
+        contentEl.innerHTML = isHtml ? body : marked.parse(body);
+        const plainBody = (contentEl.textContent || '').trim();
+        document.getElementById('articleRead').textContent = `${estimateReadMinutes(plainBody)} MIN READ`;
+
+        const normalizeTitle = (text) => (text || '')
+          .replace(/\s+/g, '')
+          .replace(/[【】\[\]()（）:：·•\-—_]/g, '')
+          .toLowerCase();
+
+        const firstHeading = contentEl.querySelector('h1, h2, h3, h4, h5, h6');
+        if (firstHeading && normalizeTitle(firstHeading.textContent) === normalizeTitle(prettyTitle)) {
+          firstHeading.remove();
+        }
+      } catch (e) {
+        document.getElementById('title').textContent = `加载失败：${e.message}`;
+      }
+    }
+
+    loadPost();
+  </script>
+</body>
+</html>

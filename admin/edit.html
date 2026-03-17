@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/assets/icons/favicon.svg" />
+  <link rel="apple-touch-icon" href="/assets/icons/favicon.svg" />
+  <title>编辑文章</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+  <script src="../config.js"></script>
+
+  <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
+
+  <style>
+    .hint { margin-top: 8px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0; }
+    .meta-grid .full { grid-column: 1 / -1; }
+    .meta-toggle { display: flex; align-items: center; gap: 8px; color: #596176; font-size: 14px; }
+    .meta-toggle input { width: auto; }
+    .preview-box {
+      min-height: 470px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fff;
+      overflow: auto;
+    }
+    #editorWrap { background: #fff; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    #editorToolbar { border-bottom: 1px solid var(--border); background: #fafafa; }
+    #editor { min-height: 420px; font-size: 16px; line-height: 1.7; }
+    .fallback-editor {
+      min-height: 420px; border: 1px solid var(--border); border-radius: 8px;
+      background: #fff; padding: 12px; outline: none; overflow: auto;
+    }
+    .editor-tip { margin: 6px 0 0; color: #7b8190; font-size: 13px; }
+    .draft-tip { font-size: 13px; color: #5f6574; margin-top: 8px; }
+    @media (max-width: 900px) { .grid, .meta-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <section class="card">
+      <div class="space-between">
+        <h1 id="pageTitle">写文章</h1>
+        <a class="btn ghost" href="./index.html">返回管理页</a>
+      </div>
+
+      <div class="row" style="margin-bottom: 10px;">
+        <input id="token" type="password" placeholder="粘贴 GitHub Token（当前会话）" aria-label="GitHub Token" />
+        <button class="btn" id="saveTokenBtn">保存 Token</button>
+        <button class="btn ghost" id="clearTokenBtn">清除 Token</button>
+      </div>
+
+      <p class="muted hint" id="targetHint"></p>
+
+      <div class="row">
+        <input id="filename" placeholder="文章名（可不写后缀，会自动补 .html）" maxlength="120" />
+        <button class="btn primary" id="saveBtn">保存</button>
+      </div>
+
+      <div class="meta-grid">
+        <input id="metaTitle" class="full" placeholder="文章标题（前台展示标题）" />
+        <input id="metaDate" type="date" placeholder="发布日期" />
+        <select id="metaStatus">
+          <option value="published">公开发布（前台可见）</option>
+          <option value="draft">草稿（仅后台可见）</option>
+        </select>
+        <label class="meta-toggle"><input id="metaPinned" type="checkbox" /> 置顶文章（前台优先显示）</label>
+        <input id="metaTags" placeholder="标签（用英文逗号分隔）" />
+        <input id="metaCover" class="full" placeholder="封面图 URL（可选）" />
+        <textarea id="metaSummary" class="full" rows="3" placeholder="文章摘要（首页显示，可选）"></textarea>
+      </div>
+
+      <p class="muted">接近 Word 的可视化编辑：可直接输入、排版、插图，不需要 Markdown。
+      本地图片会先上传到仓库，再插入文章，保存后不会丢失。</p>
+      <div id="draftTip" class="draft-tip">草稿自动保存：未开始</div>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h2>正文编辑</h2>
+
+        <div id="editorWrap">
+          <div id="editorToolbar">
+            <span class="ql-formats">
+              <select class="ql-header"><option selected></option><option value="1"></option><option value="2"></option><option value="3"></option></select>
+              <select class="ql-font"></select>
+            </span>
+            <span class="ql-formats">
+              <button class="ql-bold"></button><button class="ql-italic"></button><button class="ql-underline"></button><button class="ql-strike"></button>
+            </span>
+            <span class="ql-formats"><select class="ql-color"></select><select class="ql-background"></select></span>
+            <span class="ql-formats"><button class="ql-list" value="ordered"></button><button class="ql-list" value="bullet"></button><button class="ql-indent" value="-1"></button><button class="ql-indent" value="+1"></button></span>
+            <span class="ql-formats"><button class="ql-align" value=""></button><button class="ql-align" value="center"></button><button class="ql-align" value="right"></button><button class="ql-align" value="justify"></button></span>
+            <span class="ql-formats"><button class="ql-link"></button><button class="ql-image"></button></span>
+            <span class="ql-formats"><button class="ql-clean"></button></span>
+          </div>
+          <div id="editor"></div>
+        </div>
+
+        <div id="fallbackEditor" class="fallback-editor" contenteditable="true" style="display:none;"></div>
+        <p class="editor-tip" id="editorTip"></p>
+        <input id="imageLocalInput" type="file" accept="image/*" style="display:none" />
+      </article>
+
+      <article class="card">
+        <h2>实时预览</h2>
+        <div id="preview" class="preview-box"></div>
+      </article>
+    </section>
+  </main>
+
+  <script type="module">
+    import { getPostContent, upsertPost, uploadImageAsset, saveToken, clearToken, getRuntimeTarget } from './utils.js';
+
+    const params = new URLSearchParams(location.search);
+    const filePath = params.get('file');
+
+    const filenameEl = document.getElementById('filename');
+    const previewEl = document.getElementById('preview');
+    const saveBtn = document.getElementById('saveBtn');
+    const editorTipEl = document.getElementById('editorTip');
+    const fallbackEditorEl = document.getElementById('fallbackEditor');
+    const imageInput = document.getElementById('imageLocalInput');
+    const draftTipEl = document.getElementById('draftTip');
+
+    const metaTitleEl = document.getElementById('metaTitle');
+    const metaDateEl = document.getElementById('metaDate');
+    const metaStatusEl = document.getElementById('metaStatus');
+    const metaPinnedEl = document.getElementById('metaPinned');
+    const metaTagsEl = document.getElementById('metaTags');
+    const metaCoverEl = document.getElementById('metaCover');
+    const metaSummaryEl = document.getElementById('metaSummary');
+
+    let currentSha = '';
+    let quill = null;
+    let lastDraftSnapshot = '';
+
+    const target = getRuntimeTarget();
+    const tokenRow = document.querySelector('.row');
+    if (target.useProxy && tokenRow) tokenRow.style.display = 'none';
+    document.getElementById('targetHint').textContent = target.useProxy
+      ? `当前写入目标：${target.owner}/${target.repo} · branch=${target.branch} · dir=${target.postsDir} · uploads=${target.uploadsDir}（通过代理）`
+      : `当前写入目标：${target.owner}/${target.repo} · branch=${target.branch} · dir=${target.postsDir} · uploads=${target.uploadsDir}`;
+
+    const draftKey = () => `GBLOG_DRAFT_${target.owner}_${target.repo}_${filePath || 'new'}`;
+
+    function parseMetaFromContent(raw) {
+      const text = raw || '';
+      const m = text.match(/^<!--GBLOG_META:(\{[\s\S]*?\})-->\n?/);
+      if (!m) return { meta: {}, body: text };
+      try {
+        return { meta: JSON.parse(m[1]), body: text.replace(m[0], '') };
+      } catch {
+        return { meta: {}, body: text.replace(m[0], '') };
+      }
+    }
+
+    function buildMetaObject() {
+      const tags = metaTagsEl.value.split(',').map(s => s.trim()).filter(Boolean);
+      const meta = {
+        title: metaTitleEl.value.trim(),
+        date: metaDateEl.value.trim(),
+        status: metaStatusEl.value.trim() || 'published',
+        pinned: Boolean(metaPinnedEl.checked),
+        tags,
+        cover: metaCoverEl.value.trim(),
+        summary: metaSummaryEl.value.trim()
+      };
+      Object.keys(meta).forEach((k) => {
+        const v = meta[k];
+        if (k === 'pinned') { if (!v) delete meta[k]; return; }
+        if (!v || (Array.isArray(v) && !v.length)) delete meta[k];
+      });
+      return meta;
+    }
+
+    function composeContent(bodyHtml) {
+      const meta = buildMetaObject();
+      const metaBlock = Object.keys(meta).length ? `<!--GBLOG_META:${JSON.stringify(meta)}-->\n` : '';
+      return `${metaBlock}${bodyHtml}`;
+    }
+
+    function fillMeta(meta = {}) {
+      metaTitleEl.value = meta.title || '';
+      metaDateEl.value = meta.date || '';
+      metaStatusEl.value = (meta.status || 'published');
+      metaPinnedEl.checked = Boolean(meta.pinned);
+      metaTagsEl.value = Array.isArray(meta.tags) ? meta.tags.join(', ') : '';
+      metaCoverEl.value = meta.cover || '';
+      metaSummaryEl.value = meta.summary || '';
+    }
+
+    document.getElementById('saveTokenBtn').addEventListener('click', () => {
+      const token = document.getElementById('token').value;
+      saveToken(token);
+      alert('Token 已保存到当前会话。');
+    });
+
+    document.getElementById('clearTokenBtn').addEventListener('click', () => {
+      clearToken();
+      document.getElementById('token').value = '';
+      alert('Token 已清除。');
+    });
+
+    function getEditorHtml() {
+      if (quill) return quill.root.innerHTML;
+      return fallbackEditorEl.innerHTML;
+    }
+
+    function setEditorHtml(html) {
+      if (quill) quill.root.innerHTML = html;
+      else fallbackEditorEl.innerHTML = html;
+      renderPreview();
+    }
+
+    function renderPreview() {
+      const html = getEditorHtml();
+      previewEl.innerHTML = (html && html.trim()) ? html : '<span class="muted">开始编辑后显示预览</span>';
+    }
+
+    function currentSnapshot() {
+      return JSON.stringify({
+        filename: filenameEl.value,
+        meta: buildMetaObject(),
+        body: getEditorHtml()
+      });
+    }
+
+    function saveDraft() {
+      const snap = currentSnapshot();
+      if (!snap || snap === lastDraftSnapshot) return;
+      localStorage.setItem(draftKey(), snap);
+      lastDraftSnapshot = snap;
+      draftTipEl.textContent = `草稿自动保存：${new Date().toLocaleTimeString()}`;
+    }
+
+    function restoreDraftIfExists() {
+      const raw = localStorage.getItem(draftKey());
+      if (!raw) return false;
+      try {
+        const data = JSON.parse(raw);
+        if (!filePath && data.filename) filenameEl.value = data.filename;
+        fillMeta(data.meta || {});
+        setEditorHtml(data.body || '<p></p>');
+        draftTipEl.textContent = '草稿自动保存：已恢复本地草稿';
+        lastDraftSnapshot = currentSnapshot();
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    function clearDraft() {
+      localStorage.removeItem(draftKey());
+      draftTipEl.textContent = '草稿自动保存：已清除';
+      lastDraftSnapshot = '';
+    }
+
+    function bindImageHandler() {
+      imageInput.addEventListener('change', async () => {
+        const file = imageInput.files?.[0];
+        if (!file) return;
+
+        try {
+          draftTipEl.textContent = '正在上传图片到仓库...';
+          const imageUrl = await uploadImageAsset(file);
+
+          if (quill) {
+            const range = quill.getSelection(true);
+            const index = range ? range.index : quill.getLength();
+            quill.insertEmbed(index, 'image', imageUrl, 'user');
+            quill.setSelection(index + 1, 0);
+          } else {
+            document.execCommand('insertImage', false, imageUrl);
+          }
+
+          renderPreview();
+          saveDraft();
+          draftTipEl.textContent = '图片已上传并插入';
+        } catch (err) {
+          alert(err.message || '上传图片失败');
+          draftTipEl.textContent = '图片上传失败，请检查 Token 与仓库权限';
+        } finally {
+          imageInput.value = '';
+        }
+      });
+    }
+
+    function initWordLikeEditor() {
+      if (!window.Quill) {
+        document.getElementById('editorWrap').style.display = 'none';
+        fallbackEditorEl.style.display = 'block';
+        fallbackEditorEl.addEventListener('input', () => { renderPreview(); saveDraft(); });
+        editorTipEl.textContent = '当前环境未加载富文本引擎，已自动切换到基础编辑模式。';
+        return;
+      }
+
+      quill = new Quill('#editor', {
+        theme: 'snow',
+        placeholder: '像写 Word 一样直接输入内容…',
+        modules: {
+          toolbar: { container: '#editorToolbar', handlers: { image: () => imageInput.click() } }
+        }
+      });
+
+      quill.on('text-change', () => { renderPreview(); saveDraft(); });
+      editorTipEl.textContent = '支持粘贴 Word 内容（会尽量保留格式），也支持插入本地图片。';
+    }
+
+    [metaTitleEl, metaDateEl, metaStatusEl, metaPinnedEl, metaTagsEl, metaCoverEl, metaSummaryEl, filenameEl].forEach((el) => {
+      el.addEventListener('input', saveDraft);
+    });
+
+    function ensureFilename(raw) {
+      const name = raw.trim();
+      if (!name) return '';
+      if (/\.(html?|md)$/i.test(name)) return name;
+      return `${name}.html`;
+    }
+
+    async function init() {
+      initWordLikeEditor();
+      bindImageHandler();
+
+      if (!filePath) {
+        setEditorHtml('<h2>请输入标题</h2><p>在这里开始写内容…</p>');
+        metaStatusEl.value = 'published';
+        metaPinnedEl.checked = false;
+        restoreDraftIfExists();
+        setInterval(saveDraft, 5000);
+        return;
+      }
+
+      document.getElementById('pageTitle').textContent = '编辑文章';
+      const { content, sha, name } = await getPostContent(filePath);
+      currentSha = sha;
+      filenameEl.value = name;
+      filenameEl.readOnly = true;
+
+      const { meta, body } = parseMetaFromContent(content);
+      fillMeta(meta);
+
+      if (/\.md$/i.test(name)) {
+        const escaped = body.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+        setEditorHtml(`<p>${escaped}</p>`);
+      } else {
+        setEditorHtml(body);
+      }
+
+      restoreDraftIfExists();
+      setInterval(saveDraft, 5000);
+    }
+
+    saveBtn.addEventListener('click', async () => {
+      const filename = ensureFilename(filenameEl.value);
+      const bodyHtml = getEditorHtml().trim();
+
+      if (!filename) {
+        alert('请输入文章名');
+        return;
+      }
+      if (!bodyHtml || bodyHtml === '<p><br></p>' || bodyHtml === '<br>') {
+        alert('内容不能为空');
+        return;
+      }
+
+      saveBtn.disabled = true;
+      try {
+        await upsertPost({ filename, content: composeContent(bodyHtml), sha: currentSha });
+        clearDraft();
+        alert('保存成功');
+        location.href = './index.html';
+      } catch (e) {
+        alert(e.message);
+      } finally {
+        saveBtn.disabled = false;
+      }
+    });
+
+    init().catch((e) => {
+      alert(`初始化失败：${e.message}`);
+    });
+  </script>
+</body>
+</html>

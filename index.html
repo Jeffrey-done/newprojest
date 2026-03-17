@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/assets/icons/favicon.svg" />
+  <link rel="apple-touch-icon" href="/assets/icons/favicon.svg" />
+  <title>首页</title>
+  <link rel="stylesheet" href="assets/style.css" />
+  <script src="config.js"></script>
+</head>
+<body class="theme-leedom">
+  <main class="leed-container">
+    <header class="leed-header">
+      <a class="leed-brand" href="./index.html" id="siteTitle">GBLOG</a>
+      <div class="leed-icons" aria-label="quick links">
+        <a href="./" title="Home">⌂</a>
+        <a href="https://github.com" target="_blank" rel="noreferrer" title="GitHub">◎</a>
+        <a href="#" title="RSS">◌</a>
+      </div>
+      <p class="leed-desc" id="siteDesc"></p>
+    </header>
+
+    <section class="leed-list-wrap">
+      <div class="leed-search-wrap">
+        <input id="searchInput" class="leed-search" placeholder="Search title / summary / tags" />
+      </div>
+      <div id="tagFilters" class="leed-tag-filters"></div>
+      <div id="status" class="leed-status">加载中...</div>
+      <div id="posts"></div>
+      <div id="pager" class="leed-pager" style="display:none"></div>
+    </section>
+  </main>
+
+  <script>
+    const cfg = window.BLOG_CONFIG;
+    const pageSize = Math.max(1, Number(cfg?.features?.pageSize || 8));
+
+    let allPosts = [];
+    let activeTag = '';
+    let currentPage = 1;
+
+    function parseMetaFromContent(raw) {
+      const text = raw || '';
+      const m = text.match(/^<!--GBLOG_META:(\{[\s\S]*?\})-->\n?/);
+      if (!m) return { meta: {}, body: text };
+      try {
+        return { meta: JSON.parse(m[1]), body: text.replace(m[0], '') };
+      } catch {
+        return { meta: {}, body: text.replace(m[0], '') };
+      }
+    }
+
+    function stripHtml(html) {
+      const temp = document.createElement('div');
+      temp.innerHTML = html || '';
+      return (temp.textContent || temp.innerText || '').trim();
+    }
+
+    function formatName(fileName) {
+      return fileName.replace(/\.(md|html?)$/i, '').replace(/[-_]/g, ' ');
+    }
+
+    function canShowOnFrontend(meta = {}) {
+      const status = String(meta.status || 'published').toLowerCase();
+      const previewMode = new URLSearchParams(location.search).get('preview') === '1';
+      if (cfg?.features?.showDrafts || previewMode) return true;
+      return status !== 'draft';
+    }
+
+
+    function estimateReadMinutes(text = '') {
+      const plain = String(text || '').replace(/\s+/g, '');
+      return Math.max(1, Math.ceil(plain.length / 400));
+    }
+
+    function extractDateLike(fileName, metaDate) {
+      if (metaDate) {
+        const dt = new Date(metaDate);
+        if (!Number.isNaN(dt.getTime())) {
+          return dt.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }).toUpperCase();
+        }
+      }
+      const m = fileName.match(/(\d{4})[-_](\d{2})[-_](\d{2})/);
+      if (m) {
+        const dt = new Date(`${m[1]}-${m[2]}-${m[3]}`);
+        return dt.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }).toUpperCase();
+      }
+      return 'RECENT';
+    }
+
+    function renderEmptyState(msg = '内容正在准备中，请稍后再来。') {
+      document.getElementById('status').textContent = '';
+      document.getElementById('pager').style.display = 'none';
+      document.getElementById('posts').innerHTML = `
+        <article class="leed-empty">
+          <h3>NO POSTS YET</h3>
+          <p>${msg}</p>
+        </article>
+      `;
+    }
+
+    function getFilteredPosts() {
+      const kw = document.getElementById('searchInput').value.trim().toLowerCase();
+      return allPosts.filter((p) => {
+        if (activeTag && !(p.tags || []).map((x) => x.toLowerCase()).includes(activeTag.toLowerCase())) {
+          return false;
+        }
+        if (!kw) return true;
+        const blob = `${p.title} ${p.summary || ''} ${(p.tags || []).join(' ')}`.toLowerCase();
+        return blob.includes(kw);
+      });
+    }
+
+    function renderTagFilters(posts) {
+      const box = document.getElementById('tagFilters');
+      const map = new Map();
+      posts.forEach((p) => (p.tags || []).forEach((t) => {
+        const k = String(t || '').trim();
+        if (!k) return;
+        map.set(k, (map.get(k) || 0) + 1);
+      }));
+
+      if (!map.size) {
+        box.innerHTML = '';
+        return;
+      }
+
+      const tags = [...map.entries()].sort((a, b) => b[1] - a[1]);
+      box.innerHTML = `
+        <button class="leed-tag-chip ${activeTag ? '' : 'active'}" data-tag="">ALL (${posts.length})</button>
+        ${tags.map(([tag, count]) => `<button class="leed-tag-chip ${activeTag === tag ? 'active' : ''}" data-tag="${tag.replace(/"/g, '&quot;')}">#${tag} (${count})</button>`).join('')}
+      `;
+    }
+
+    function renderPager(total, page) {
+      const pagerEl = document.getElementById('pager');
+      const totalPages = Math.max(1, Math.ceil(total / pageSize));
+      if (totalPages <= 1) {
+        pagerEl.style.display = 'none';
+        pagerEl.innerHTML = '';
+        return;
+      }
+      pagerEl.style.display = 'flex';
+      pagerEl.innerHTML = `
+        <button class="leed-pager-btn" data-page="${page - 1}" ${page <= 1 ? 'disabled' : ''}>上一页</button>
+        <span class="leed-pager-text">${page} / ${totalPages}</span>
+        <button class="leed-pager-btn" data-page="${page + 1}" ${page >= totalPages ? 'disabled' : ''}>下一页</button>
+      `;
+    }
+
+    function renderPosts(posts, totalCount) {
+      const postsEl = document.getElementById('posts');
+      const statusEl = document.getElementById('status');
+
+      if (!posts.length) {
+        renderEmptyState('没有匹配结果，换个关键词试试。');
+        return;
+      }
+
+      statusEl.textContent = `${totalCount} POSTS`;
+      postsEl.innerHTML = posts.map((post) => `
+        <article class="leed-post-row">
+          <time class="leed-post-date">${post.displayDate}</time>
+          <div>
+            <a class="leed-post-title" href="post.html?file=${encodeURIComponent(post.path)}">${post.title}</a>
+            ${post.summary ? `<p class="leed-post-summary">${post.summary}</p>` : ''}
+            <p class="leed-post-meta">${post.pinned ? '<span class=\"leed-post-pin\">PINNED</span>' : ''}<span class="leed-post-read">${post.readMinutes} min read</span></p>
+            ${post.status === 'draft' ? '<p class="leed-post-status">DRAFT</p>' : ''}
+            ${post.tags?.length ? `<p class="leed-post-tags">${post.tags.map(t => `#${t}`).join(' ')}</p>` : ''}
+          </div>
+        </article>
+      `).join('');
+    }
+
+    function applyFilters(resetPage = false) {
+      if (resetPage) currentPage = 1;
+      const filtered = getFilteredPosts();
+      renderTagFilters(allPosts);
+
+      const total = filtered.length;
+      const totalPages = Math.max(1, Math.ceil(total / pageSize));
+      if (currentPage > totalPages) currentPage = totalPages;
+
+      const start = (currentPage - 1) * pageSize;
+      const current = filtered.slice(start, start + pageSize);
+      renderPosts(current, total);
+      renderPager(total, currentPage);
+    }
+
+    async function loadPosts() {
+      const statusEl = document.getElementById('status');
+      const title = (cfg?.site?.title || 'Gblog').toUpperCase();
+      const desc = cfg?.site?.description || '';
+
+      document.title = title;
+      document.getElementById('siteTitle').textContent = title;
+      document.getElementById('siteDesc').textContent = desc;
+
+      if (!cfg?.github?.owner || !cfg?.github?.repo) {
+        statusEl.textContent = '配置缺失';
+        return;
+      }
+
+      try {
+        const listUrl = `https://api.github.com/repos/${cfg.github.owner}/${cfg.github.repo}/contents/${cfg.github.postsDir}?ref=${cfg.github.branch}`;
+        const res = await fetch(listUrl);
+        if (!res.ok) throw new Error(`加载失败 (${res.status})`);
+
+        const files = await res.json();
+        const postFiles = files
+          .filter((f) => f.type === 'file' && /\.(md|html?)$/i.test(f.name))
+          .sort((a, b) => b.name.localeCompare(a.name));
+
+        if (!postFiles.length) {
+          renderEmptyState();
+          return;
+        }
+
+        statusEl.textContent = '加载内容中...';
+        const detailed = await Promise.all(postFiles.map(async (f) => {
+          try {
+            const r = await fetch(`https://api.github.com/repos/${cfg.github.owner}/${cfg.github.repo}/contents/${f.path}?ref=${cfg.github.branch}`);
+            if (!r.ok) throw new Error('fetch fail');
+            const d = await r.json();
+            const decoded = decodeURIComponent(escape(atob((d.content || '').replace(/\n/g, ''))));
+            const { meta, body } = parseMetaFromContent(decoded);
+            if (!canShowOnFrontend(meta)) return null;
+            const plainBody = /\.html?$/i.test(f.name) ? stripHtml(body) : body;
+            return {
+              path: f.path,
+              title: meta.title || formatName(f.name),
+              summary: meta.summary || plainBody.slice(0, 90),
+              tags: Array.isArray(meta.tags) ? meta.tags : [],
+              displayDate: extractDateLike(f.name, meta.date),
+              sortKey: meta.date || f.name,
+              status: String(meta.status || 'published').toLowerCase(),
+              pinned: Boolean(meta.pinned),
+              readMinutes: estimateReadMinutes(plainBody)
+            };
+          } catch {
+            return {
+              path: f.path,
+              title: formatName(f.name),
+              summary: '',
+              tags: [],
+              displayDate: extractDateLike(f.name),
+              sortKey: f.name,
+              status: 'published',
+              pinned: false,
+              readMinutes: estimateReadMinutes('')
+            };
+          }
+        }));
+
+        allPosts = detailed.filter(Boolean).sort((a, b) => {
+          if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+          return String(b.sortKey).localeCompare(String(a.sortKey));
+        });
+        applyFilters(true);
+      } catch (e) {
+        const msg = e?.message || '网络异常';
+        if (msg.includes('404') || msg.includes('Not Found')) {
+          renderEmptyState();
+          return;
+        }
+        statusEl.textContent = msg;
+      }
+    }
+
+    document.getElementById('searchInput').addEventListener('input', () => applyFilters(true));
+    document.getElementById('tagFilters').addEventListener('click', (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLElement) || !target.hasAttribute('data-tag')) return;
+      activeTag = target.dataset.tag || '';
+      applyFilters(true);
+    });
+    document.getElementById('pager').addEventListener('click', (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLElement) || !target.dataset.page) return;
+      const next = Number(target.dataset.page);
+      if (!Number.isFinite(next) || next < 1) return;
+      currentPage = next;
+      applyFilters(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    loadPosts();
+  </script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Gblog icon">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f2f5fb"/>
+    </linearGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1f6dff"/>
+      <stop offset="100%" stop-color="#2b8bff"/>
+    </linearGradient>
+  </defs>
+  <rect x="10" y="10" width="236" height="236" rx="52" fill="url(#bg)"/>
+  <text x="128" y="135" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="56" font-weight="700" fill="url(#brand)">Gblog</text>
+  <path d="M74 162h108v16H74z" fill="url(#brand)" opacity="0.9"/>
+  <path d="M84 146c14-5 30-5 44 0 14-5 30-5 44 0v10c-14-5-30-5-44 0-14-5-30-5-44 0z" fill="#d5ddea"/>
+</svg>
