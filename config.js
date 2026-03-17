@@ -19,6 +19,7 @@ window.BLOG_CONFIG = {
     showDrafts: false,
     markdownPreview: true,
     confirmBeforeDelete: true,
-    maxTitleLength: 80
+    maxTitleLength: 80,
+    pageSize: 8
   }
 };

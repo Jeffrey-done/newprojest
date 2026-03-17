@@ -25,14 +25,20 @@
       <div class="leed-search-wrap">
         <input id="searchInput" class="leed-search" placeholder="Search title / summary / tags" />
       </div>
+      <div id="tagFilters" class="leed-tag-filters"></div>
       <div id="status" class="leed-status">加载中...</div>
       <div id="posts"></div>
+      <div id="pager" class="leed-pager" style="display:none"></div>
     </section>
   </main>
 
   <script>
     const cfg = window.BLOG_CONFIG;
+    const pageSize = Math.max(1, Number(cfg?.features?.pageSize || 8));
+
     let allPosts = [];
+    let activeTag = '';
+    let currentPage = 1;
 
     function parseMetaFromContent(raw) {
       const text = raw || '';
@@ -54,7 +60,6 @@
     function formatName(fileName) {
       return fileName.replace(/\.(md|html?)$/i, '').replace(/[-_]/g, ' ');
     }
-
 
     function canShowOnFrontend(meta = {}) {
       const status = String(meta.status || 'published').toLowerCase();
@@ -80,6 +85,7 @@
 
     function renderEmptyState(msg = '内容正在准备中，请稍后再来。') {
       document.getElementById('status').textContent = '';
+      document.getElementById('pager').style.display = 'none';
       document.getElementById('posts').innerHTML = `
         <article class="leed-empty">
           <h3>NO POSTS YET</h3>
@@ -88,7 +94,56 @@
       `;
     }
 
-    function renderPosts(posts) {
+    function getFilteredPosts() {
+      const kw = document.getElementById('searchInput').value.trim().toLowerCase();
+      return allPosts.filter((p) => {
+        if (activeTag && !(p.tags || []).map((x) => x.toLowerCase()).includes(activeTag.toLowerCase())) {
+          return false;
+        }
+        if (!kw) return true;
+        const blob = `${p.title} ${p.summary || ''} ${(p.tags || []).join(' ')}`.toLowerCase();
+        return blob.includes(kw);
+      });
+    }
+
+    function renderTagFilters(posts) {
+      const box = document.getElementById('tagFilters');
+      const map = new Map();
+      posts.forEach((p) => (p.tags || []).forEach((t) => {
+        const k = String(t || '').trim();
+        if (!k) return;
+        map.set(k, (map.get(k) || 0) + 1);
+      }));
+
+      if (!map.size) {
+        box.innerHTML = '';
+        return;
+      }
+
+      const tags = [...map.entries()].sort((a, b) => b[1] - a[1]);
+      box.innerHTML = `
+        <button class="leed-tag-chip ${activeTag ? '' : 'active'}" data-tag="">ALL (${posts.length})</button>
+        ${tags.map(([tag, count]) => `<button class="leed-tag-chip ${activeTag === tag ? 'active' : ''}" data-tag="${tag.replace(/"/g, '&quot;')}">#${tag} (${count})</button>`).join('')}
+      `;
+    }
+
+    function renderPager(total, page) {
+      const pagerEl = document.getElementById('pager');
+      const totalPages = Math.max(1, Math.ceil(total / pageSize));
+      if (totalPages <= 1) {
+        pagerEl.style.display = 'none';
+        pagerEl.innerHTML = '';
+        return;
+      }
+      pagerEl.style.display = 'flex';
+      pagerEl.innerHTML = `
+        <button class="leed-pager-btn" data-page="${page - 1}" ${page <= 1 ? 'disabled' : ''}>上一页</button>
+        <span class="leed-pager-text">${page} / ${totalPages}</span>
+        <button class="leed-pager-btn" data-page="${page + 1}" ${page >= totalPages ? 'disabled' : ''}>下一页</button>
+      `;
+    }
+
+    function renderPosts(posts, totalCount) {
       const postsEl = document.getElementById('posts');
       const statusEl = document.getElementById('status');
 
@@ -97,7 +152,7 @@
         return;
       }
 
-      statusEl.textContent = `${posts.length} POSTS`;
+      statusEl.textContent = `${totalCount} POSTS`;
       postsEl.innerHTML = posts.map((post) => `
         <article class="leed-post-row">
           <time class="leed-post-date">${post.displayDate}</time>
@@ -111,17 +166,19 @@
       `).join('');
     }
 
-    function applySearch() {
-      const kw = document.getElementById('searchInput').value.trim().toLowerCase();
-      if (!kw) {
-        renderPosts(allPosts);
-        return;
-      }
-      const filtered = allPosts.filter((p) => {
-        const blob = `${p.title} ${p.summary || ''} ${(p.tags || []).join(' ')}`.toLowerCase();
-        return blob.includes(kw);
-      });
-      renderPosts(filtered);
+    function applyFilters(resetPage = false) {
+      if (resetPage) currentPage = 1;
+      const filtered = getFilteredPosts();
+      renderTagFilters(allPosts);
+
+      const total = filtered.length;
+      const totalPages = Math.max(1, Math.ceil(total / pageSize));
+      if (currentPage > totalPages) currentPage = totalPages;
+
+      const start = (currentPage - 1) * pageSize;
+      const current = filtered.slice(start, start + pageSize);
+      renderPosts(current, total);
+      renderPager(total, currentPage);
     }
 
     async function loadPosts() {
@@ -186,7 +243,7 @@
         }));
 
         allPosts = detailed.filter(Boolean).sort((a, b) => String(b.sortKey).localeCompare(String(a.sortKey)));
-        renderPosts(allPosts);
+        applyFilters(true);
       } catch (e) {
         const msg = e?.message || '网络异常';
         if (msg.includes('404') || msg.includes('Not Found')) {
@@ -197,7 +254,23 @@
       }
     }
 
-    document.getElementById('searchInput').addEventListener('input', applySearch);
+    document.getElementById('searchInput').addEventListener('input', () => applyFilters(true));
+    document.getElementById('tagFilters').addEventListener('click', (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLElement) || !target.hasAttribute('data-tag')) return;
+      activeTag = target.dataset.tag || '';
+      applyFilters(true);
+    });
+    document.getElementById('pager').addEventListener('click', (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLElement) || !target.dataset.page) return;
+      const next = Number(target.dataset.page);
+      if (!Number.isFinite(next) || next < 1) return;
+      currentPage = next;
+      applyFilters(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
     loadPosts();
   </script>
 </body>

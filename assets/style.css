@@ -79,6 +79,59 @@ body {
   text-transform: uppercase;
 }
 
+
+.theme-leedom .leed-tag-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 2px 0 12px;
+}
+
+.theme-leedom .leed-tag-chip {
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: #778095;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+
+.theme-leedom .leed-tag-chip.active {
+  border-color: #c8d2e6;
+  background: #edf3ff;
+  color: #334155;
+}
+
+.theme-leedom .leed-pager {
+  margin-top: 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
+.theme-leedom .leed-pager-btn {
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: #5b647a;
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.theme-leedom .leed-pager-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.theme-leedom .leed-pager-text {
+  color: #8a90a0;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+
 .theme-leedom .leed-post-summary {
   margin: 8px 0 0;
   color: #8a90a0;
