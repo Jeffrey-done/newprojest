@@ -61,6 +61,10 @@
       <div class="meta-grid">
         <input id="metaTitle" class="full" placeholder="文章标题（前台展示标题）" />
         <input id="metaDate" type="date" placeholder="发布日期" />
+        <select id="metaStatus">
+          <option value="published">公开发布（前台可见）</option>
+          <option value="draft">草稿（仅后台可见）</option>
+        </select>
         <input id="metaTags" placeholder="标签（用英文逗号分隔）" />
         <input id="metaCover" class="full" placeholder="封面图 URL（可选）" />
         <textarea id="metaSummary" class="full" rows="3" placeholder="文章摘要（首页显示，可选）"></textarea>
@@ -121,6 +125,7 @@
 
     const metaTitleEl = document.getElementById('metaTitle');
     const metaDateEl = document.getElementById('metaDate');
+    const metaStatusEl = document.getElementById('metaStatus');
     const metaTagsEl = document.getElementById('metaTags');
     const metaCoverEl = document.getElementById('metaCover');
     const metaSummaryEl = document.getElementById('metaSummary');
@@ -154,6 +159,7 @@
       const meta = {
         title: metaTitleEl.value.trim(),
         date: metaDateEl.value.trim(),
+        status: metaStatusEl.value.trim() || 'published',
         tags,
         cover: metaCoverEl.value.trim(),
         summary: metaSummaryEl.value.trim()
@@ -174,6 +180,7 @@
     function fillMeta(meta = {}) {
       metaTitleEl.value = meta.title || '';
       metaDateEl.value = meta.date || '';
+      metaStatusEl.value = (meta.status || 'published');
       metaTagsEl.value = Array.isArray(meta.tags) ? meta.tags.join(', ') : '';
       metaCoverEl.value = meta.cover || '';
       metaSummaryEl.value = meta.summary || '';
@@ -296,7 +303,7 @@
       editorTipEl.textContent = '支持粘贴 Word 内容（会尽量保留格式），也支持插入本地图片。';
     }
 
-    [metaTitleEl, metaDateEl, metaTagsEl, metaCoverEl, metaSummaryEl, filenameEl].forEach((el) => {
+    [metaTitleEl, metaDateEl, metaStatusEl, metaTagsEl, metaCoverEl, metaSummaryEl, filenameEl].forEach((el) => {
       el.addEventListener('input', saveDraft);
     });
 
@@ -313,6 +320,7 @@
 
       if (!filePath) {
         setEditorHtml('<h2>请输入标题</h2><p>在这里开始写内容…</p>');
+        metaStatusEl.value = 'published';
         restoreDraftIfExists();
         setInterval(saveDraft, 5000);
         return;

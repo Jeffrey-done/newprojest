@@ -55,6 +55,14 @@
       return fileName.replace(/\.(md|html?)$/i, '').replace(/[-_]/g, ' ');
     }
 
+
+    function canShowOnFrontend(meta = {}) {
+      const status = String(meta.status || 'published').toLowerCase();
+      const previewMode = new URLSearchParams(location.search).get('preview') === '1';
+      if (cfg?.features?.showDrafts || previewMode) return true;
+      return status !== 'draft';
+    }
+
     function extractDateLike(fileName, metaDate) {
       if (metaDate) {
         const dt = new Date(metaDate);
@@ -96,6 +104,7 @@
           <div>
             <a class="leed-post-title" href="post.html?file=${encodeURIComponent(post.path)}">${post.title}</a>
             ${post.summary ? `<p class="leed-post-summary">${post.summary}</p>` : ''}
+            ${post.status === 'draft' ? '<p class="leed-post-status">DRAFT</p>' : ''}
             ${post.tags?.length ? `<p class="leed-post-tags">${post.tags.map(t => `#${t}`).join(' ')}</p>` : ''}
           </div>
         </article>
@@ -152,6 +161,7 @@
             const d = await r.json();
             const decoded = decodeURIComponent(escape(atob((d.content || '').replace(/\n/g, ''))));
             const { meta, body } = parseMetaFromContent(decoded);
+            if (!canShowOnFrontend(meta)) return null;
             const plainBody = /\.html?$/i.test(f.name) ? stripHtml(body) : body;
             return {
               path: f.path,
@@ -159,7 +169,8 @@
               summary: meta.summary || plainBody.slice(0, 90),
               tags: Array.isArray(meta.tags) ? meta.tags : [],
               displayDate: extractDateLike(f.name, meta.date),
-              sortKey: meta.date || f.name
+              sortKey: meta.date || f.name,
+              status: String(meta.status || 'published').toLowerCase()
             };
           } catch {
             return {
@@ -168,12 +179,13 @@
               summary: '',
               tags: [],
               displayDate: extractDateLike(f.name),
-              sortKey: f.name
+              sortKey: f.name,
+              status: 'published'
             };
           }
         }));
 
-        allPosts = detailed.sort((a, b) => String(b.sortKey).localeCompare(String(a.sortKey)));
+        allPosts = detailed.filter(Boolean).sort((a, b) => String(b.sortKey).localeCompare(String(a.sortKey)));
         renderPosts(allPosts);
       } catch (e) {
         const msg = e?.message || '网络异常';

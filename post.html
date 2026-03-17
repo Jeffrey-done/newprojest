@@ -48,6 +48,14 @@
       return fileName.replace(/\.(md|html?)$/i, '').replace(/[-_]/g, ' ');
     }
 
+
+    function canReadPost(meta = {}) {
+      const status = String(meta.status || 'published').toLowerCase();
+      const previewMode = new URLSearchParams(location.search).get('preview') === '1';
+      if (cfg?.features?.showDrafts || previewMode) return true;
+      return status !== 'draft';
+    }
+
     function dateFromPath(path, metaDate) {
       if (metaDate) {
         const dt = new Date(metaDate);
@@ -75,6 +83,10 @@
         const data = await res.json();
         const decoded = decodeURIComponent(escape(atob((data.content || '').replace(/\n/g, ''))));
         const { meta, body } = parseMetaFromContent(decoded);
+
+        if (!canReadPost(meta)) {
+          throw new Error('文章未公开发布');
+        }
 
         const prettyTitle = meta.title || formatName(data.name);
         const isHtml = /\.html?$/i.test(data.name || '');
