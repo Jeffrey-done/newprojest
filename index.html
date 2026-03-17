@@ -68,6 +68,12 @@
       return status !== 'draft';
     }
 
+
+    function estimateReadMinutes(text = '') {
+      const plain = String(text || '').replace(/\s+/g, '');
+      return Math.max(1, Math.ceil(plain.length / 400));
+    }
+
     function extractDateLike(fileName, metaDate) {
       if (metaDate) {
         const dt = new Date(metaDate);
@@ -159,6 +165,7 @@
           <div>
             <a class="leed-post-title" href="post.html?file=${encodeURIComponent(post.path)}">${post.title}</a>
             ${post.summary ? `<p class="leed-post-summary">${post.summary}</p>` : ''}
+            <p class="leed-post-meta">${post.pinned ? '<span class=\"leed-post-pin\">PINNED</span>' : ''}<span class="leed-post-read">${post.readMinutes} min read</span></p>
             ${post.status === 'draft' ? '<p class="leed-post-status">DRAFT</p>' : ''}
             ${post.tags?.length ? `<p class="leed-post-tags">${post.tags.map(t => `#${t}`).join(' ')}</p>` : ''}
           </div>
@@ -227,7 +234,9 @@
               tags: Array.isArray(meta.tags) ? meta.tags : [],
               displayDate: extractDateLike(f.name, meta.date),
               sortKey: meta.date || f.name,
-              status: String(meta.status || 'published').toLowerCase()
+              status: String(meta.status || 'published').toLowerCase(),
+              pinned: Boolean(meta.pinned),
+              readMinutes: estimateReadMinutes(plainBody)
             };
           } catch {
             return {
@@ -237,12 +246,17 @@
               tags: [],
               displayDate: extractDateLike(f.name),
               sortKey: f.name,
-              status: 'published'
+              status: 'published',
+              pinned: false,
+              readMinutes: estimateReadMinutes('')
             };
           }
         }));
 
-        allPosts = detailed.filter(Boolean).sort((a, b) => String(b.sortKey).localeCompare(String(a.sortKey)));
+        allPosts = detailed.filter(Boolean).sort((a, b) => {
+          if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+          return String(b.sortKey).localeCompare(String(a.sortKey));
+        });
         applyFilters(true);
       } catch (e) {
         const msg = e?.message || '网络异常';
