@@ -9,45 +9,65 @@
   <link rel="stylesheet" href="../assets/style.css" />
   <script src="../config.js"></script>
 </head>
-<body>
-  <main class="container">
-    <section class="card">
-      <div class="space-between">
-        <h1>文章管理后台</h1>
+<body class="admin-horizon">
+  <main class="admin-shell">
+    <aside class="admin-sidebar">
+      <div class="admin-logo">GBLOG <span>Studio</span></div>
+      <nav class="admin-nav">
+        <a class="active" href="./index.html">文章总览</a>
+        <a href="./edit.html">写新文章</a>
+        <a href="../index.html" target="_blank" rel="noreferrer">查看前台</a>
+        <a href="https://github.com" target="_blank" rel="noreferrer">GitHub</a>
+      </nav>
+      <div class="admin-sidebar-card">
+        <p>RUNTIME</p>
+        <strong id="runtimeBadge">Detecting...</strong>
+      </div>
+    </aside>
+
+    <section class="admin-main">
+      <section class="admin-hero">
+        <div>
+          <h1>文章管理后台</h1>
+          <p>统一管理文章、批量操作、快速预览与发布。</p>
+        </div>
         <div class="row">
-          <a class="btn ghost" href="../index.html">查看前台</a>
+          <a class="btn ghost" href="../index.html" target="_blank" rel="noreferrer">查看前台</a>
           <a class="btn primary" href="./edit.html">新增文章</a>
         </div>
-      </div>
-      <p class="muted" id="authTip">建议使用最小权限 Token；Token 只存储在当前浏览器会话中。</p>
-      <div class="row" id="tokenRow">
-        <input id="token" type="password" placeholder="粘贴 GitHub Token（仅当前会话有效）" aria-label="GitHub Token" />
-        <button class="btn" id="saveTokenBtn">保存 Token</button>
-        <button class="btn ghost" id="clearTokenBtn">清除 Token</button>
-      </div>
-    </section>
+      </section>
 
-    <section class="card">
-      <div class="space-between">
-        <h2>文章列表</h2>
-        <div class="row">
-          <button class="btn ghost" id="selectAllBtn">全选</button>
-          <button class="btn danger" id="bulkDeleteBtn" disabled>删除选中</button>
-          <button class="btn" id="refreshBtn">刷新</button>
+      <section class="card">
+        <p class="muted" id="authTip">建议使用最小权限 Token；Token 只存储在当前浏览器会话中。</p>
+        <div class="row" id="tokenRow">
+          <input id="token" type="password" placeholder="粘贴 GitHub Token（仅当前会话有效）" aria-label="GitHub Token" />
+          <button class="btn" id="saveTokenBtn">保存 Token</button>
+          <button class="btn ghost" id="clearTokenBtn">清除 Token</button>
         </div>
-      </div>
-      <div class="admin-toolbar">
-        <input id="searchInput" type="search" placeholder="按文件名搜索..." />
-        <select id="sortSelect" aria-label="排序">
-          <option value="name-asc">文件名 A-Z</option>
-          <option value="name-desc">文件名 Z-A</option>
-          <option value="size-desc">按大小从大到小</option>
-          <option value="size-asc">按大小从小到大</option>
-        </select>
-      </div>
-      <div id="stats" class="admin-stats"></div>
-      <div id="status" class="muted">加载中...</div>
-      <div id="postList"></div>
+      </section>
+
+      <section class="card">
+        <div class="space-between">
+          <h2>文章列表</h2>
+          <div class="row">
+            <button class="btn ghost" id="selectAllBtn">全选</button>
+            <button class="btn danger" id="bulkDeleteBtn" disabled>删除选中</button>
+            <button class="btn" id="refreshBtn">刷新</button>
+          </div>
+        </div>
+        <div class="admin-toolbar">
+          <input id="searchInput" type="search" placeholder="按文件名搜索..." />
+          <select id="sortSelect" aria-label="排序">
+            <option value="name-asc">文件名 A-Z</option>
+            <option value="name-desc">文件名 Z-A</option>
+            <option value="size-desc">按大小从大到小</option>
+            <option value="size-asc">按大小从小到大</option>
+          </select>
+        </div>
+        <div id="stats" class="admin-stats"></div>
+        <div id="status" class="muted">加载中...</div>
+        <div id="postList"></div>
+      </section>
     </section>
   </main>
 
@@ -67,6 +87,8 @@
     const runtime = getRuntimeTarget();
     const authTipEl = document.getElementById('authTip');
     const tokenRowEl = document.getElementById('tokenRow');
+    const runtimeBadge = document.getElementById('runtimeBadge');
+    runtimeBadge.textContent = runtime.useProxy ? 'Proxy Enabled' : 'Direct Token';
     if (runtime.useProxy) {
       tokenRowEl.style.display = 'none';
       authTipEl.textContent = '当前使用 Cloudflare Pages Functions 代理模式，前端无需输入 GitHub Token。';
