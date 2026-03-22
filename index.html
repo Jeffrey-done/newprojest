@@ -35,12 +35,31 @@
   <script>
     const cfg = window.BLOG_CONFIG;
     const pageSize = Math.max(1, Number(cfg?.features?.pageSize || 8));
-    const postCacheKey = `GBLOG_POSTS_CACHE_${cfg?.github?.owner || ''}_${cfg?.github?.repo || ''}_${cfg?.github?.branch || ''}_${cfg?.github?.postsDir || ''}`;
+    const postCacheVersion = 1;
+    const postCacheKey = `GBLOG_POSTS_CACHE_V${postCacheVersion}_${cfg?.github?.owner || ''}_${cfg?.github?.repo || ''}_${cfg?.github?.branch || ''}_${cfg?.github?.postsDir || ''}`;
     const postCacheTtlMs = 5 * 60 * 1000;
 
     let allPosts = [];
     let activeTag = '';
     let currentPage = 1;
+
+    function shouldBypassCache() {
+      const params = new URLSearchParams(location.search);
+      return params.get('refresh') === '1' || params.get('preview') === '1';
+    }
+
+    function isValidCachedPost(post) {
+      return Boolean(
+        post &&
+        typeof post.path === 'string' &&
+        typeof post.title === 'string' &&
+        typeof post.displayDate === 'string'
+      );
+    }
+
+    function clearPostsCache() {
+      try { localStorage.removeItem(postCacheKey); } catch {}
+    }
 
     function readPostsCache() {
       try {
@@ -49,7 +68,9 @@
         const parsed = JSON.parse(raw);
         if (!parsed?.at || !Array.isArray(parsed?.posts)) return null;
         if (Date.now() - Number(parsed.at) > postCacheTtlMs) return null;
-        return parsed.posts;
+        const posts = parsed.posts.filter(isValidCachedPost);
+        if (!posts.length) return null;
+        return posts;
       } catch {
         return null;
       }
@@ -223,7 +244,8 @@
         return;
       }
 
-      const cached = readPostsCache();
+      const useCache = !shouldBypassCache();
+      const cached = useCache ? readPostsCache() : null;
       if (cached?.length) {
         allPosts = cached;
         statusEl.textContent = '已加载缓存内容';
@@ -285,11 +307,13 @@
           if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
           return String(b.sortKey).localeCompare(String(a.sortKey));
         });
-        writePostsCache(allPosts);
+        if (allPosts.length) writePostsCache(allPosts);
+        else clearPostsCache();
         applyFilters(true);
       } catch (e) {
         const msg = e?.message || '网络异常';
         if (msg.includes('404') || msg.includes('Not Found')) {
+          clearPostsCache();
           renderEmptyState();
           return;
         }
