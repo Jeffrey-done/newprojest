@@ -35,10 +35,31 @@
   <script>
     const cfg = window.BLOG_CONFIG;
     const pageSize = Math.max(1, Number(cfg?.features?.pageSize || 8));
+    const postCacheKey = `GBLOG_POSTS_CACHE_${cfg?.github?.owner || ''}_${cfg?.github?.repo || ''}_${cfg?.github?.branch || ''}_${cfg?.github?.postsDir || ''}`;
+    const postCacheTtlMs = 5 * 60 * 1000;
 
     let allPosts = [];
     let activeTag = '';
     let currentPage = 1;
+
+    function readPostsCache() {
+      try {
+        const raw = localStorage.getItem(postCacheKey);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed?.at || !Array.isArray(parsed?.posts)) return null;
+        if (Date.now() - Number(parsed.at) > postCacheTtlMs) return null;
+        return parsed.posts;
+      } catch {
+        return null;
+      }
+    }
+
+    function writePostsCache(posts) {
+      try {
+        localStorage.setItem(postCacheKey, JSON.stringify({ at: Date.now(), posts }));
+      } catch {}
+    }
 
     function parseMetaFromContent(raw) {
       const text = raw || '';
@@ -202,6 +223,13 @@
         return;
       }
 
+      const cached = readPostsCache();
+      if (cached?.length) {
+        allPosts = cached;
+        statusEl.textContent = '已加载缓存内容';
+        applyFilters(true);
+      }
+
       try {
         const listUrl = `https://api.github.com/repos/${cfg.github.owner}/${cfg.github.repo}/contents/${cfg.github.postsDir}?ref=${cfg.github.branch}`;
         const res = await fetch(listUrl);
@@ -257,6 +285,7 @@
           if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
           return String(b.sortKey).localeCompare(String(a.sortKey));
         });
+        writePostsCache(allPosts);
         applyFilters(true);
       } catch (e) {
         const msg = e?.message || '网络异常';
