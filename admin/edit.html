@@ -14,7 +14,8 @@
 
   <style>
     .hint { margin-top: 8px; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .editor-shell { display: flex; flex-direction: column; gap: 14px; }
+    .grid { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 12px; }
     .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0; }
     .meta-grid .full { grid-column: 1 / -1; }
     .meta-toggle { display: flex; align-items: center; gap: 8px; color: #596176; font-size: 14px; }
@@ -36,50 +37,102 @@
     }
     .editor-tip { margin: 6px 0 0; color: #7b8190; font-size: 13px; }
     .draft-tip { font-size: 13px; color: #5f6574; margin-top: 8px; }
+    .editor-hero {
+      border-radius: 20px;
+      padding: 24px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      background: radial-gradient(circle at 20% 20%, #8f7dff 0%, #5830ff 45%, #3e1bd9 100%);
+      box-shadow: 0 16px 40px rgba(76, 48, 214, 0.35);
+    }
+    .editor-hero h1 { margin: 0; font-size: 30px; }
+    .editor-hero p { margin: 6px 0 0; color: rgba(255, 255, 255, 0.88); }
+    .editor-hero .btn.ghost {
+      background: rgba(255, 255, 255, 0.2);
+      border-color: rgba(255, 255, 255, 0.35);
+      color: #fff;
+    }
+    .editor-hero .btn.primary { background: #fff; color: #3f25cf; }
+    .soft-card {
+      border-radius: 18px;
+      border-color: #e7ebff;
+      box-shadow: 0 8px 24px rgba(117, 132, 194, 0.08);
+    }
+    .target-chip {
+      margin-top: 10px;
+      border: 1px solid #d9e2ff;
+      background: #f4f7ff;
+      color: #4a5882;
+      border-radius: 12px;
+      padding: 10px 12px;
+    }
     @media (max-width: 900px) { .grid, .meta-grid { grid-template-columns: 1fr; } }
   </style>
 </head>
-<body>
-  <main class="container">
-    <section class="card">
-      <div class="space-between">
-        <h1 id="pageTitle">写文章</h1>
-        <a class="btn ghost" href="./index.html">返回管理页</a>
+<body class="admin-horizon">
+  <main class="admin-shell">
+    <aside class="admin-sidebar">
+      <div class="admin-logo">GBLOG <span>Studio</span></div>
+      <nav class="admin-nav">
+        <a href="./index.html">文章总览</a>
+        <a class="active" href="./edit.html">写新文章</a>
+        <a href="../index.html" target="_blank" rel="noreferrer">查看前台</a>
+      </nav>
+      <div class="admin-sidebar-card">
+        <p>EDITOR MODE</p>
+        <strong id="runtimeBadge">Detecting...</strong>
       </div>
+    </aside>
 
-      <div class="row" style="margin-bottom: 10px;">
-        <input id="token" type="password" placeholder="粘贴 GitHub Token（当前会话）" aria-label="GitHub Token" />
-        <button class="btn" id="saveTokenBtn">保存 Token</button>
-        <button class="btn ghost" id="clearTokenBtn">清除 Token</button>
-      </div>
+    <section class="editor-shell">
+      <section class="editor-hero">
+        <div>
+          <h1 id="pageTitle">写文章</h1>
+          <p>可视化编辑、实时预览、自动草稿，像用文档一样写博客。</p>
+        </div>
+        <div class="row">
+          <a class="btn ghost" href="./index.html">返回管理页</a>
+          <button class="btn primary" id="saveBtnTop">立即保存</button>
+        </div>
+      </section>
 
-      <p class="muted hint" id="targetHint"></p>
+      <section class="card soft-card">
+        <div class="row" style="margin-bottom: 10px;" id="tokenRow">
+          <input id="token" type="password" placeholder="粘贴 GitHub Token（当前会话）" aria-label="GitHub Token" />
+          <button class="btn" id="saveTokenBtn">保存 Token</button>
+          <button class="btn ghost" id="clearTokenBtn">清除 Token</button>
+        </div>
 
-      <div class="row">
-        <input id="filename" placeholder="文章名（可不写后缀，会自动补 .html）" maxlength="120" />
-        <button class="btn primary" id="saveBtn">保存</button>
-      </div>
+        <p class="hint target-chip" id="targetHint"></p>
 
-      <div class="meta-grid">
-        <input id="metaTitle" class="full" placeholder="文章标题（前台展示标题）" />
-        <input id="metaDate" type="date" placeholder="发布日期" />
-        <select id="metaStatus">
-          <option value="published">公开发布（前台可见）</option>
-          <option value="draft">草稿（仅后台可见）</option>
-        </select>
-        <label class="meta-toggle"><input id="metaPinned" type="checkbox" /> 置顶文章（前台优先显示）</label>
-        <input id="metaTags" placeholder="标签（用英文逗号分隔）" />
-        <input id="metaCover" class="full" placeholder="封面图 URL（可选）" />
-        <textarea id="metaSummary" class="full" rows="3" placeholder="文章摘要（首页显示，可选）"></textarea>
-      </div>
+        <div class="row">
+          <input id="filename" placeholder="文章名（可不写后缀，会自动补 .html）" maxlength="120" />
+          <button class="btn primary" id="saveBtn">保存</button>
+        </div>
 
-      <p class="muted">接近 Word 的可视化编辑：可直接输入、排版、插图，不需要 Markdown。
-      本地图片会先上传到仓库，再插入文章，保存后不会丢失。</p>
-      <div id="draftTip" class="draft-tip">草稿自动保存：未开始</div>
-    </section>
+        <div class="meta-grid">
+          <input id="metaTitle" class="full" placeholder="文章标题（前台展示标题）" />
+          <input id="metaDate" type="date" placeholder="发布日期" />
+          <select id="metaStatus">
+            <option value="published">公开发布（前台可见）</option>
+            <option value="draft">草稿（仅后台可见）</option>
+          </select>
+          <label class="meta-toggle"><input id="metaPinned" type="checkbox" /> 置顶文章（前台优先显示）</label>
+          <input id="metaTags" placeholder="标签（用英文逗号分隔）" />
+          <input id="metaCover" class="full" placeholder="封面图 URL（可选）" />
+          <textarea id="metaSummary" class="full" rows="3" placeholder="文章摘要（首页显示，可选）"></textarea>
+        </div>
 
-    <section class="grid">
-      <article class="card">
+        <p class="muted">接近 Word 的可视化编辑：可直接输入、排版、插图，不需要 Markdown。
+        本地图片会先上传到仓库，再插入文章，保存后不会丢失。</p>
+        <div id="draftTip" class="draft-tip">草稿自动保存：未开始</div>
+      </section>
+
+      <section class="grid">
+      <article class="card soft-card">
         <h2>正文编辑</h2>
 
         <div id="editorWrap">
@@ -105,10 +158,11 @@
         <input id="imageLocalInput" type="file" accept="image/*" style="display:none" />
       </article>
 
-      <article class="card">
+      <article class="card soft-card">
         <h2>实时预览</h2>
         <div id="preview" class="preview-box"></div>
       </article>
+      </section>
     </section>
   </main>
 
@@ -139,7 +193,9 @@
     let lastDraftSnapshot = '';
 
     const target = getRuntimeTarget();
-    const tokenRow = document.querySelector('.row');
+    const tokenRow = document.getElementById('tokenRow');
+    const runtimeBadge = document.getElementById('runtimeBadge');
+    runtimeBadge.textContent = target.useProxy ? 'Proxy Enabled' : 'Direct Token';
     if (target.useProxy && tokenRow) tokenRow.style.display = 'none';
     document.getElementById('targetHint').textContent = target.useProxy
       ? `当前写入目标：${target.owner}/${target.repo} · branch=${target.branch} · dir=${target.postsDir} · uploads=${target.uploadsDir}（通过代理）`
@@ -203,6 +259,10 @@
       clearToken();
       document.getElementById('token').value = '';
       alert('Token 已清除。');
+    });
+
+    document.getElementById('saveBtnTop').addEventListener('click', () => {
+      saveBtn.click();
     });
 
     function getEditorHtml() {
