@@ -376,10 +376,67 @@ input, textarea, select {
 .admin-state-error h3 { margin: 0; }
 .admin-state-error { background: #fff8f8; border-color: #ffd8d8; }
 
+.admin-toolbar {
+  margin: 12px 0 8px;
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  gap: 10px;
+}
+
+.admin-stats {
+  margin: 0 0 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #e4e9f3;
+  background: #f8fbff;
+  color: #576074;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.admin-chip.active {
+  background: #e8f0ff;
+  border-color: #bfd3ff;
+  color: #2b4b87;
+}
+
+.post-list-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 14px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.post-list-main h3 {
+  margin: 0;
+}
+
+.admin-check-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #738096;
+  font-size: 13px;
+}
+
+.admin-check-wrap input {
+  width: auto;
+}
+
 @media (max-width: 768px) {
   .theme-leedom .leed-post-row { grid-template-columns: 1fr; gap: 6px; }
   .theme-leedom .leed-post-title { font-size: 24px; }
   .theme-leedom .leed-article-title { font-size: 34px; }
   .theme-leedom .leed-container { padding-top: 26px; }
   .row { flex-wrap: wrap; }
+  .admin-toolbar { grid-template-columns: 1fr; }
+  .post-list-item { grid-template-columns: 1fr; }
 }
