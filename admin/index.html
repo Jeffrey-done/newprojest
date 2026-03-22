@@ -9,31 +9,65 @@
   <link rel="stylesheet" href="../assets/style.css" />
   <script src="../config.js"></script>
 </head>
-<body>
-  <main class="container">
-    <section class="card">
-      <div class="space-between">
-        <h1>文章管理后台</h1>
+<body class="admin-horizon">
+  <main class="admin-shell">
+    <aside class="admin-sidebar">
+      <div class="admin-logo">GBLOG <span>Studio</span></div>
+      <nav class="admin-nav">
+        <a class="active" href="./index.html">文章总览</a>
+        <a href="./edit.html">写新文章</a>
+        <a href="../index.html" target="_blank" rel="noreferrer">查看前台</a>
+        <a href="https://github.com" target="_blank" rel="noreferrer">GitHub</a>
+      </nav>
+      <div class="admin-sidebar-card">
+        <p>RUNTIME</p>
+        <strong id="runtimeBadge">Detecting...</strong>
+      </div>
+    </aside>
+
+    <section class="admin-main">
+      <section class="admin-hero">
+        <div>
+          <h1>文章管理后台</h1>
+          <p>统一管理文章、批量操作、快速预览与发布。</p>
+        </div>
         <div class="row">
-          <a class="btn ghost" href="../index.html">查看前台</a>
+          <a class="btn ghost" href="../index.html" target="_blank" rel="noreferrer">查看前台</a>
           <a class="btn primary" href="./edit.html">新增文章</a>
         </div>
-      </div>
-      <p class="muted" id="authTip">建议使用最小权限 Token；Token 只存储在当前浏览器会话中。</p>
-      <div class="row" id="tokenRow">
-        <input id="token" type="password" placeholder="粘贴 GitHub Token（仅当前会话有效）" aria-label="GitHub Token" />
-        <button class="btn" id="saveTokenBtn">保存 Token</button>
-        <button class="btn ghost" id="clearTokenBtn">清除 Token</button>
-      </div>
-    </section>
+      </section>
 
-    <section class="card">
-      <div class="space-between">
-        <h2>文章列表</h2>
-        <button class="btn" id="refreshBtn">刷新</button>
-      </div>
-      <div id="status" class="muted">加载中...</div>
-      <div id="postList"></div>
+      <section class="card">
+        <p class="muted" id="authTip">建议使用最小权限 Token；Token 只存储在当前浏览器会话中。</p>
+        <div class="row" id="tokenRow">
+          <input id="token" type="password" placeholder="粘贴 GitHub Token（仅当前会话有效）" aria-label="GitHub Token" />
+          <button class="btn" id="saveTokenBtn">保存 Token</button>
+          <button class="btn ghost" id="clearTokenBtn">清除 Token</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="space-between">
+          <h2>文章列表</h2>
+          <div class="row">
+            <button class="btn ghost" id="selectAllBtn">全选</button>
+            <button class="btn danger" id="bulkDeleteBtn" disabled>删除选中</button>
+            <button class="btn" id="refreshBtn">刷新</button>
+          </div>
+        </div>
+        <div class="admin-toolbar">
+          <input id="searchInput" type="search" placeholder="按文件名搜索..." />
+          <select id="sortSelect" aria-label="排序">
+            <option value="name-asc">文件名 A-Z</option>
+            <option value="name-desc">文件名 Z-A</option>
+            <option value="size-desc">按大小从大到小</option>
+            <option value="size-asc">按大小从小到大</option>
+          </select>
+        </div>
+        <div id="stats" class="admin-stats"></div>
+        <div id="status" class="muted">加载中...</div>
+        <div id="postList"></div>
+      </section>
     </section>
   </main>
 
@@ -42,17 +76,143 @@
 
     const listEl = document.getElementById('postList');
     const statusEl = document.getElementById('status');
+    const statsEl = document.getElementById('stats');
+    const searchInputEl = document.getElementById('searchInput');
+    const sortSelectEl = document.getElementById('sortSelect');
+    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+    const selectAllBtn = document.getElementById('selectAllBtn');
+    const adminPrefsKey = `GBLOG_ADMIN_PREFS_${window.BLOG_CONFIG?.github?.owner || ''}_${window.BLOG_CONFIG?.github?.repo || ''}`;
+    let allPosts = [];
 
     const runtime = getRuntimeTarget();
     const authTipEl = document.getElementById('authTip');
     const tokenRowEl = document.getElementById('tokenRow');
+    const runtimeBadge = document.getElementById('runtimeBadge');
+    runtimeBadge.textContent = runtime.useProxy ? 'Proxy Enabled' : 'Direct Token';
     if (runtime.useProxy) {
       tokenRowEl.style.display = 'none';
       authTipEl.textContent = '当前使用 Cloudflare Pages Functions 代理模式，前端无需输入 GitHub Token。';
     }
 
+    function esc(v) {
+      return String(v || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function formatKB(size) {
+      return `${(size / 1024).toFixed(1)} KB`;
+    }
+
+    function loadPrefs() {
+      try {
+        const raw = localStorage.getItem(adminPrefsKey);
+        if (!raw) return;
+        const prefs = JSON.parse(raw);
+        if (typeof prefs.search === 'string') searchInputEl.value = prefs.search;
+        if (typeof prefs.sort === 'string' && [...sortSelectEl.options].some((opt) => opt.value === prefs.sort)) {
+          sortSelectEl.value = prefs.sort;
+        }
+      } catch {}
+    }
+
+    function savePrefs() {
+      try {
+        localStorage.setItem(adminPrefsKey, JSON.stringify({
+          search: searchInputEl.value || '',
+          sort: sortSelectEl.value || 'name-asc'
+        }));
+      } catch {}
+    }
+
+    function getSelectedRows() {
+      return [...listEl.querySelectorAll('input[data-select]:checked')];
+    }
+
+    function updateSelectState() {
+      const selected = getSelectedRows();
+      bulkDeleteBtn.disabled = selected.length === 0;
+      selectAllBtn.textContent = selected.length && selected.length === listEl.querySelectorAll('input[data-select]').length
+        ? '取消全选'
+        : '全选';
+    }
+
+    function updateStats(posts) {
+      const totalSize = posts.reduce((sum, p) => sum + (p.size || 0), 0);
+      const htmlCount = posts.filter((p) => /\.html?$/i.test(p.name)).length;
+      const mdCount = posts.filter((p) => /\.md$/i.test(p.name)).length;
+      const selected = getSelectedRows().length;
+
+      statsEl.innerHTML = `
+        <span class="admin-chip">总文章：${posts.length}</span>
+        <span class="admin-chip">HTML：${htmlCount}</span>
+        <span class="admin-chip">Markdown：${mdCount}</span>
+        <span class="admin-chip">总大小：${formatKB(totalSize)}</span>
+        <span class="admin-chip ${selected ? 'active' : ''}">已选中：${selected}</span>
+      `;
+    }
+
+    function getFilteredPosts() {
+      const keyword = searchInputEl.value.trim().toLowerCase();
+      const sort = sortSelectEl.value;
+
+      const filtered = allPosts.filter((p) => !keyword || p.name.toLowerCase().includes(keyword));
+      filtered.sort((a, b) => {
+        if (sort === 'name-desc') return b.name.localeCompare(a.name);
+        if (sort === 'size-desc') return b.size - a.size;
+        if (sort === 'size-asc') return a.size - b.size;
+        return a.name.localeCompare(b.name);
+      });
+      return filtered;
+    }
+
+    function renderList(posts) {
+      if (!posts.length) {
+        listEl.innerHTML = `
+          <article class="admin-state-card admin-state-empty">
+            <div class="admin-state-icon">🔎</div>
+            <h3>没有匹配结果</h3>
+            <p class="muted">试试更短的关键词或切换排序方式。</p>
+          </article>
+        `;
+        updateStats(posts);
+        bulkDeleteBtn.disabled = true;
+        return;
+      }
+
+      listEl.innerHTML = posts.map((p) => {
+        const rawUrl = `https://raw.githubusercontent.com/${runtime.owner}/${runtime.repo}/${runtime.branch}/${p.path}`;
+        return `
+          <article class="card post-list-item">
+            <label class="admin-check-wrap">
+              <input type="checkbox" data-select="${esc(p.path)}" data-sha="${esc(p.sha)}" />
+              <span>选择</span>
+            </label>
+            <div class="post-list-main">
+              <h3>${esc(p.name)}</h3>
+              <div class="muted">${esc(p.path)} · ${formatKB(p.size)}</div>
+            </div>
+            <div class="row">
+              <a class="btn ghost" href="../post.html?file=${encodeURIComponent(p.path)}" target="_blank" rel="noreferrer">预览</a>
+              <button class="btn ghost" data-copy-url="${esc(rawUrl)}">复制直链</button>
+              <a class="btn ghost" href="${esc(p.htmlUrl)}" target="_blank" rel="noreferrer">GitHub</a>
+              <a class="btn primary" href="./edit.html?file=${encodeURIComponent(p.path)}">编辑</a>
+              <button class="btn danger" data-delete="${esc(p.path)}" data-sha="${esc(p.sha)}">删除</button>
+            </div>
+          </article>
+        `;
+      }).join('');
+
+      updateSelectState();
+      updateStats(posts);
+    }
+
     function renderEmptyState() {
       statusEl.textContent = '';
+      statsEl.innerHTML = '';
       listEl.innerHTML = `
         <article class="admin-state-card admin-state-empty">
           <div class="admin-state-icon">📝</div>
@@ -69,6 +229,7 @@
 
     function renderErrorState(message) {
       statusEl.textContent = '';
+      statsEl.innerHTML = '';
       listEl.innerHTML = `
         <article class="admin-state-card admin-state-error">
           <div class="admin-state-icon">⚠️</div>
@@ -86,28 +247,18 @@
     async function load() {
       statusEl.textContent = '加载中...';
       listEl.innerHTML = '';
+      statsEl.innerHTML = '';
+      bulkDeleteBtn.disabled = true;
 
       try {
-        const posts = await getPosts();
-        if (!posts.length) {
+        allPosts = await getPosts();
+        if (!allPosts.length) {
           renderEmptyState();
           return;
         }
 
-        statusEl.textContent = `共 ${posts.length} 篇文章`;
-        listEl.innerHTML = posts.map((p) => `
-          <article class="card post-list-item">
-            <div>
-              <h3>${p.name}</h3>
-              <div class="muted">${p.path} · ${(p.size / 1024).toFixed(1)} KB</div>
-            </div>
-            <div class="row">
-              <a class="btn ghost" href="${p.htmlUrl}" target="_blank" rel="noreferrer">GitHub</a>
-              <a class="btn primary" href="./edit.html?file=${encodeURIComponent(p.path)}">编辑</a>
-              <button class="btn danger" data-delete="${p.path}" data-sha="${p.sha}">删除</button>
-            </div>
-          </article>
-        `).join('');
+        statusEl.textContent = `共 ${allPosts.length} 篇文章`;
+        renderList(getFilteredPosts());
       } catch (e) {
         const msg = e?.message || '未知错误';
         if (msg.includes('HTTP 404') || msg.includes('Not Found')) {
@@ -119,6 +270,57 @@
     }
 
     document.getElementById('refreshBtn').addEventListener('click', load);
+    searchInputEl.addEventListener('input', () => {
+      savePrefs();
+      renderList(getFilteredPosts());
+    });
+    sortSelectEl.addEventListener('change', () => {
+      savePrefs();
+      renderList(getFilteredPosts());
+    });
+
+    selectAllBtn.addEventListener('click', () => {
+      const boxes = [...listEl.querySelectorAll('input[data-select]')];
+      if (!boxes.length) return;
+      const allSelected = boxes.every((b) => b.checked);
+      boxes.forEach((b) => { b.checked = !allSelected; });
+      updateSelectState();
+      updateStats(getFilteredPosts());
+    });
+
+    bulkDeleteBtn.addEventListener('click', async () => {
+      const selected = getSelectedRows();
+      if (!selected.length) return;
+      const ok = window.confirm(`确认删除选中的 ${selected.length} 篇文章？此操作不可恢复。`);
+      if (!ok) return;
+
+      bulkDeleteBtn.disabled = true;
+      try {
+        const failed = [];
+        const total = selected.length;
+        let done = 0;
+        for (const item of selected) {
+          try {
+            await removePost({ filePath: item.dataset.select, sha: item.dataset.sha });
+            done += 1;
+            statusEl.textContent = `批量删除中... ${done}/${total}`;
+          } catch {
+            failed.push(item.dataset.select);
+          }
+        }
+        await load();
+        if (failed.length) {
+          alert(`部分删除失败（${failed.length} 篇）：\n${failed.join('\n')}`);
+        } else {
+          alert(`批量删除完成：共删除 ${total} 篇文章。`);
+        }
+      } catch (err) {
+        alert(err.message || '批量删除失败');
+      } finally {
+        updateSelectState();
+      }
+    });
+
     document.getElementById('saveTokenBtn').addEventListener('click', () => {
       const token = document.getElementById('token').value;
       saveToken(token);
@@ -132,7 +334,20 @@
 
     listEl.addEventListener('click', async (e) => {
       const target = e.target;
-      if (!(target instanceof HTMLElement) || !target.dataset.delete) return;
+      if (!(target instanceof HTMLElement)) return;
+
+      if (target.dataset.copyUrl) {
+        try {
+          await navigator.clipboard.writeText(target.dataset.copyUrl);
+          target.textContent = '已复制';
+          setTimeout(() => { target.textContent = '复制直链'; }, 1000);
+        } catch {
+          alert('复制失败，请手动复制');
+        }
+        return;
+      }
+
+      if (!target.dataset.delete) return;
 
       const ok = window.confirm('确认删除？此操作不可恢复。');
       if (!ok) return;
@@ -148,6 +363,14 @@
       }
     });
 
+    listEl.addEventListener('change', (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLInputElement) || !target.dataset.select) return;
+      updateSelectState();
+      updateStats(getFilteredPosts());
+    });
+
+    loadPrefs();
     load();
   </script>
 </body>

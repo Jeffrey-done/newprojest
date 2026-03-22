@@ -50,6 +50,7 @@
 配置步骤：
 
 1. 在 Cloudflare Pages 项目里添加环境变量：`GITHUB_TOKEN`（有仓库 Contents 读写权限）。
+   - 推荐同时配置：`GITHUB_OWNER`、`GITHUB_REPO`（用于代理层限制只允许访问指定仓库）。
 2. 在 `config.js` 中开启：
    - `github.useProxy = true`
    - `github.proxyBase = '/api/github'`
@@ -75,6 +76,7 @@
 - 给 `/admin/*` 开启 Cloudflare Access 或页面密码保护。
 - 使用最小权限 Fine-grained token。
 - 定期轮换 token。
+- Pages Functions 代理建议只允许 `repos/{owner}/{repo}/contents/*` 路径（本仓库默认已限制）。
 
 
 ## Token 常见报错排查
@@ -118,4 +120,12 @@
 - 前台搜索：首页支持按标题/摘要/标签实时检索。
 - 前台浏览增强：支持标签筛选 + 分页（`features.pageSize` 可配置每页数量），并显示阅读时长与置顶标识。
 - 发布状态：草稿默认不在前台展示；如需预览草稿可在 URL 添加 `?preview=1`。
-
+- 前台缓存：首页会将文章列表缓存 5 分钟，提升重复访问速度（到期自动回源刷新）。
+  - 支持 `?refresh=1` 强制绕过缓存刷新；
+  - `?preview=1` 预览草稿时会自动绕过缓存。
+- 后台列表增强：支持文件名搜索、排序、批量勾选删除、复制文章 raw 直链，以及总数/体积分布统计。
+  - 支持一键预览文章（前台视图）；
+  - 支持记住后台搜索词与排序偏好（浏览器本地存储）；
+  - 批量删除会显示进度，并在失败时汇总提示失败条目。
+- 后台视觉升级：采用带侧边栏、渐变 Hero、卡片化内容区的 Dashboard 风格布局（偏 Horizon UI 设计语言）。
+  - 列表页与编辑页已统一为同一套 Dashboard 视觉风格。
